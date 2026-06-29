@@ -1,0 +1,3 @@
+id,kind,issued_utc,forecast_threshold,p_alert,p_M_24h,p_X_24h,expected_class,current_class_at_issue,window_h,verify_after_utc,status,actual_peak_class,actual_peak_flux_wm2,outcome,verified_utc,alert_email,followup,predicted_peak_class,predicted_peak_flux_wm2,err_dex,persistence_err_dex,climatology_err_dex,beat_persistence,beat_climatology
+1,daily,2026-06-28T03:15:41.156999+00:00,M,0.4407,0.4407,0.0178,C-M,C2.0,24,2026-06-29T03:15:41.156999+00:00,verified,C9.5,9.539588063489646e-06,MISS,2026-06-29T03:18:37.587254+00:00,n/a,logged,,,,,,,
+2,daily,2026-06-29T00:18:19.548279+00:00,M,0.4558,0.4558,0.0178,C-M,C2.0,24,2026-06-30T00:18:19.548279+00:00,pending,,,pending,,n/a,,,,,,,,

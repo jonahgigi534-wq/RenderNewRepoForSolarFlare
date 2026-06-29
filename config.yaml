@@ -1,0 +1,331 @@
+# ======================================================================
+# Solar Flare Predictor — central configuration
+# Everything tunable lives here so the model can be re-trained / re-tuned
+# without touching code. Edit thresholds, paths, and API endpoints freely.
+# ======================================================================
+
+paths:
+  data_dir: data/swansf            # where the .pkl SWAN-SF partitions live
+  model_dir: models                # where trained artifacts are written
+  cache_dir: .cache                # live-data cache (failsafe backups)
+
+# ----------------------------------------------------------------------
+# Flare-class taxonomy.
+# GOES 1-8 Angstrom peak flux (W/m^2) defines the class, by definition:
+#   A < 1e-7 | B 1e-7..1e-6 | C 1e-6..1e-5 | M 1e-5..1e-4 | X >= 1e-4
+# Per the brief: A, B and *weak* C count as "no-flare". Upper-C, M, X
+# are tracked independently, with an escalating warning for big X events.
+# ----------------------------------------------------------------------
+classes:
+  # Flux boundaries (W/m^2) for the operational categories we forecast.
+  noflare_below: 5.0e-6      # anything below this = "no-flare" (A,B,C1-C4.9)
+  upperC_min:    5.0e-6      # C5.0 -> start counting as a real "C" event
+  m_min:         1.0e-5      # M1.0
+  x_min:         1.0e-4      # X1.0
+  # Escalating X warnings:
+  x_warn:        1.0e-4      # any X-class -> WARNING
+  x_severe:      5.0e-4      # >= X5  -> SEVERE
+  x_extreme:     1.0e-3      # >= X10 -> EXTREME (radio blackout R3+)
+  # Ordered category labels used everywhere downstream.
+  order: ["no-flare", "C", "M", "X"]
+
+# ----------------------------------------------------------------------
+# Training task.
+# The Cleaned-SWANSF repo ships BINARY labels (M+/X vs. rest) so the
+# default trainable target is "any M-or-greater flare in the next 24h".
+# If you supply ORIGINAL SWAN-SF multi-class labels, flip task to
+# "multiclass" and the same pipeline trains a 4-way no-flare/C/M/X model.
+# ----------------------------------------------------------------------
+training:
+  task: binary               # "binary" (M+ vs rest) | "multiclass"
+  prediction_window_h: 24    # label horizon baked into SWAN-SF
+  observation_window_h: 12   # length of each input time-series slice
+  # Partition protocol — train on augmented partitions, test on CLEAN
+  # partitions. This is the leakage-free SWAN-SF protocol (no "cheating").
+  train_partitions: [1, 2, 3]
+  val_partition: 4
+  test_partition: 5
+  model: auto                # "auto" = bake-off picks the best; or name one below
+  random_state: 42
+  # Decision threshold is auto-tuned on the validation set to MAXIMISE TSS
+  # (True Skill Statistic) — the standard flare-forecasting skill score.
+  tune_metric: tss
+  # Model bake-off: every available candidate is trained and ranked on the
+  # validation partition by `selection_metric`; the winner is calibrated and
+  # saved. lightgbm/xgboost are included automatically if installed.
+  selection_metric: tss
+  candidates: [hist_gradient_boosting, random_forest, extra_trees, logistic, lightgbm, xgboost]
+  # The high_precision operating point maximises precision while keeping recall
+  # at or above this floor (so it stays useful, not degenerate).
+  high_precision_min_recall: 0.25
+
+# Three selectable decision thresholds, all fitted on validation, frozen for
+# test. Pick which one the live predictor uses via live.operating_point.
+#   high_recall    -> max TSS  (catch the most flares; many false alarms)
+#   balanced       -> max F1   (even precision/recall balance)
+#   high_precision -> max precision s.t. recall >= high_precision_min_recall
+operating_points: [high_recall, balanced, high_precision]
+
+# Probability bands for the UI — turns a raw % into an at-a-glance level.
+# `min` is the lower bound on P(M+); the highest band whose min <= p wins.
+forecast_bands:
+  - {name: Low,      min: 0.00, tone: quiet}
+  - {name: Moderate, min: 0.15, tone: c}
+  - {name: High,     min: 0.40, tone: m}
+  - {name: Severe,   min: 0.65, tone: x}
+
+# 24 SHARP parameters, in the exact channel order of the .pkl arrays.
+features:
+  sharp:
+    - R_VALUE
+    - TOTUSJH
+    - TOTBSQ
+    - TOTPOT
+    - TOTUSJZ
+    - ABSNJZH
+    - SAVNCPP
+    - USFLUX
+    - TOTFZ
+    - MEANPOT
+    - EPSX
+    - EPSY
+    - EPSZ
+    - MEANSHR
+    - SHRGT45
+    - MEANGAM
+    - MEANGBT
+    - MEANGBZ
+    - MEANGBH
+    - MEANJZH
+    - TOTFY
+    - MEANJZD
+    - MEANALP
+    - TOTFX
+  # Per-channel time-series summary stats engineered into the model.
+  summary_stats: [last, mean, std, min, max, slope, delta]
+
+# ----------------------------------------------------------------------
+# Live data sources. Tried top-to-bottom; first success wins. Every
+# source has a timeout and the predictor degrades gracefully if all fail.
+# ----------------------------------------------------------------------
+live:
+  cache_ttl_minutes: 30
+  request_timeout_s: 20
+  operating_point: balanced    # high_recall | balanced | high_precision
+  xray_sources:
+    - https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json
+    - https://services.swpc.noaa.gov/json/goes/secondary/xrays-7-day.json
+    - https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json
+  srs_sources:   # NOAA Solar Region Summary (active-region context)
+    - https://services.swpc.noaa.gov/json/solar_regions.json
+  flare_event_sources:  # recent flare event lists (backup / validation)
+    - https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json
+  # NASA DONKI solar flare API (extra corroboration; key optional).
+  donki:
+    enabled: true
+    url: https://api.nasa.gov/DONKI/FLR
+    api_key: DEMO_KEY      # replace with your https://api.nasa.gov key
+
+# ----------------------------------------------------------------------
+# Geographic hazard layer (STEP 1). Dayside HF-radio-blackout footprint of the
+# CURRENT flare, from NOAA D-RAP. This is X-ray-driven, the same physics as the
+# flare model — it is NOT the high-latitude geomagnetic hazard (added later).
+# A visualization of real NOAA products, not a new prediction.
+# ----------------------------------------------------------------------
+hazard:
+  drap_sources:
+    - https://services.swpc.noaa.gov/text/drap_global_frequencies.txt
+  scales_sources:
+    - https://services.swpc.noaa.gov/products/noaa-scales.json
+  # Highest-affected-frequency (MHz) thresholds for flagging blackout cells.
+  haf_watch_mhz:   10.0
+  haf_warning_mhz: 18.0
+  haf_severe_mhz:  28.0
+
+# ----------------------------------------------------------------------
+# High-latitude geomagnetic hazard layer (STEP 4). Auroral oval (NOAA OVATION)
+# + planetary Kp -> NOAA G-scale. This is the SEPARATE high-latitude mechanism
+# (power-grid GIC / GNSS / polar aviation / aurora), NOT the dayside HF blackout
+# above. Driven by Earth's field + the solar wind, not solar X-rays. A
+# visualization of real NOAA products, not a new prediction.
+# ----------------------------------------------------------------------
+geomag:
+  ovation_sources:
+    - https://services.swpc.noaa.gov/json/ovation_aurora_latest.json
+  kp_sources:
+    - https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json
+  grid_step_deg: {lat: 2, lon: 4}     # downsample the 1-deg OVATION grid for the map
+  # Visible-aurora probability (%) thresholds for flagging high-latitude cells.
+  aurora_watch_pct:   10
+  aurora_warning_pct: 35
+  aurora_severe_pct:  70
+  # Planetary Kp thresholds (NOAA G-scale onset) for storm wording.
+  kp_watch:   5      # G1 (minor)
+  kp_warning: 7      # G3 (strong)
+  kp_severe:  8      # G4+ (severe-extreme)
+
+# ----------------------------------------------------------------------
+# Satellites-at-risk layer (3D globe). A flare-RISK INDICATOR by altitude
+# band + current/predicted flare level — NOT a validated per-satellite
+# prediction. Orbital data: CelesTrak GP (TLE). Positions are propagated in
+# the browser with satellite.js (SGP4); we never re-fetch just to move them.
+# ----------------------------------------------------------------------
+satellites:
+  gp_url: "https://celestrak.org/NORAD/elements/gp.php?GROUP={group}&FORMAT=tle"
+  cache_hours: 2                 # CelesTrak updates ~2h; do not over-poll
+  default_groups: [stations, gps-ops, geo]
+  starlink_group: starlink
+  starlink_sample: 40            # sample of Starlink in the default view
+  all_group: active              # "load all" scope
+  max_default: 400               # cap markers so the globe stays smooth
+  max_all: 1500
+  bands:                         # altitude (km) -> orbit band
+    - {name: LEO,    min: 0,     max: 2000}
+    - {name: MEO,    min: 2000,  max: 35000}
+    - {name: GEO,    min: 35000, max: 37000}
+    - {name: beyond, min: 37000, max: 10000000}
+
+# ----------------------------------------------------------------------
+# Geomagnetic-storm forecaster (STEP 5, Part 2). REAL ML in a SEPARATE feature
+# space: forecasts P(Kp >= threshold storm within the next N hours) from the L1
+# solar wind, trained on NASA OMNI hourly (CDAWeb HAPI). Kept apart from the
+# flare model (Sun's field) and the geomag visualization layer (current OVATION/Kp).
+# ----------------------------------------------------------------------
+storm:
+  hapi_base: https://cdaweb.gsfc.nasa.gov/hapi
+  hapi_dataset: OMNI2_H0_MRG1HR
+  # OMNI params IN DATASET ORDER (HAPI requires this order); last two are targets.
+  omni_params: [F1800, BY_GSM1800, BZ_GSM1800, N1800, V1800, Pressure1800, KP1800, DST1800]
+  train_years: 12               # years of OMNI history to train on
+  observation_window_h: 24      # solar-wind history fed to the model
+  prediction_window_h: 24       # forecast horizon
+  sample_stride_h: 3            # step between samples (matches Kp's 3-hour cadence)
+  kp_storm_threshold: 5.0       # Kp >= 5 (G1+) defines a positive "storm"
+  split: {train: 0.65, val: 0.15, test: 0.20, gap_days: 5}   # leakage-free chronological split
+  random_state: 42
+  candidates: [hist_gradient_boosting, random_forest, extra_trees, logistic]
+  selection_metric: tss
+  high_precision_min_recall: 0.30
+  operating_point: balanced
+  summary_stats: [last, mean, std, min, max, slope, delta]
+  cache_hours: 6                # cache the OMNI training pull
+  # Live inference feeds (real-time L1 + NOAA's own Kp forecast for corroboration).
+  l1_mag_sources:
+    - https://services.swpc.noaa.gov/products/solar-wind/mag-7-day.json
+  l1_plasma_sources:
+    - https://services.swpc.noaa.gov/products/solar-wind/plasma-7-day.json
+  kp_forecast_sources:
+    - https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json
+
+# ----------------------------------------------------------------------
+# STEP 7 — Lead-time vs skill experiment (ISEF centerpiece). Forecasts the same
+# storm target from several vantage points and measures skill (TSS) vs forecast
+# lead time. Reproducible:  python -m solarflare.experiments.leadtime_skill
+# ----------------------------------------------------------------------
+experiment:
+  test_fraction: 0.30          # last 30% of days held out for scoring
+  gap_days: 10                 # gap between train and test (kills autocorrelation)
+  leads_days: [1, 2, 3, 5, 7, 10, 14, 20, 27, 30]
+  recurrence_lead_days: 27     # one solar rotation
+  cme_lead_days: [1, 2, 3]
+  cme_speed_kms: 700           # "fast" Earth-directed CME threshold (km/s)
+  cme_max_longitude: 60        # |lon| <= this counts as Earth-directed (deg)
+  cme_cache_days: 7            # reuse cached DONKI chunks (avoid re-hitting DEMO_KEY)
+  live_refresh_hours: 6        # recompute the rolling-window result when older than this
+  random_state: 42
+  donki_cme_sources:
+    - https://api.nasa.gov/DONKI/CME
+
+# ----------------------------------------------------------------------
+# Plain-language impact statements (STEP 8) for the NOAA R/S/G scales, levels 0-5.
+# Pure rules-based text mapped from NOAA's own current scale values.
+# ----------------------------------------------------------------------
+impact:
+  statements:
+    R:
+      0: "No radio blackouts — HF radio and satellite navigation are normal."
+      1: "R1 minor — brief HF radio fading on the sunlit side; minor navigation errors."
+      2: "R2 moderate — limited HF radio blackout on the sunlit side for tens of minutes."
+      3: "R3 strong — wide-area HF radio blackout on the daylit side for ~an hour; navigation outages."
+      4: "R4 severe — HF radio blackout across most of the sunlit hemisphere for one to two hours."
+      5: "R5 extreme — complete HF radio blackout on the entire sunlit side for hours."
+    S:
+      0: "No solar radiation storm — normal radiation environment."
+      1: "S1 minor — minor impacts to HF radio at the poles; no biological concern."
+      2: "S2 moderate — occasional polar HF issues; small added dose on high-latitude flights."
+      3: "S3 strong — degraded polar HF and navigation; passengers on polar routes receive a small dose."
+      4: "S4 severe — polar HF blackouts; satellite memory and imaging upsets; reroute polar flights."
+      5: "S5 extreme — complete polar HF blackout; risk of satellite and avionics damage; reroute flights."
+    G:
+      0: "No geomagnetic storm — power grids and GPS are nominal."
+      1: "G1 minor — weak power-grid fluctuations; aurora at high latitudes."
+      2: "G2 moderate — high-latitude grids may see voltage alarms; aurora visible further south."
+      3: "G3 strong — grid voltage corrections needed; GPS and satellite issues; aurora to mid-latitudes."
+      4: "G4 severe — possible grid voltage instability; widespread GPS/HF problems; aurora well into mid-latitudes."
+      5: "G5 extreme — risk of grid collapse; satellites, HF and GPS heavily disrupted; aurora near its equatorward limit."
+
+# ----------------------------------------------------------------------
+# Threshold alerting (STEP 8). The log channel is always on; the webhook fires
+# only if a URL is set (below OR the ALERT_WEBHOOK_URL env var — NO secrets are
+# committed). Email is off by default and intentionally not implemented.
+# ----------------------------------------------------------------------
+alerts:
+  r_min: 3            # alert at R3+ radio blackout
+  s_min: 3            # alert at S3+ radiation storm
+  g_min: 4            # alert at G4+ geomagnetic storm
+  storm_p_min: 0.5    # alert at >= 50% modelled chance of a G1+ storm in 24h
+  webhook_enabled: true
+  webhook_url: ""     # e.g. a Slack/Discord incoming-webhook URL, or set $ALERT_WEBHOOK_URL
+  email_enabled: false
+
+# ----------------------------------------------------------------------
+# Peak-magnitude forecast + HONEST skill grading. Each logged forecast also
+# predicts a SPECIFIC next-24h peak flare magnitude (a transparent probability-
+# weighted expectation over the flare model's class probabilities — NOT a trained
+# regressor) and, after the window, is graded in log10-flux error (dex) against
+# persistence & climatology baselines. "Accurate" = beats the baselines, not
+# "the class letter matched". See solarflare/magnitude.py.
+# ----------------------------------------------------------------------
+magnitude:
+  enabled: true
+  climatology_peak_flux: 3.0e-6   # zero-skill anchor: long-run median daily peak (~C3)
+  band_rep_flux:                  # representative peak flux per band (geometric midpoints)
+    no-flare: 1.5e-6
+    C: 7.1e-6
+    M: 3.16e-5
+    X: 3.16e-4
+
+# ----------------------------------------------------------------------
+# Live email notifier — predictive flare alerts + post-event verification.
+# Warns when the forecast crosses a magnitude/probability threshold, records the
+# prediction, then (after the observation window) verifies against NOAA's GOES
+# flare-event log and emails the accuracy follow-up. SECRETS-SAFE: the SMTP
+# password comes from $SMTP_PASSWORD (never the config); with SMTP unset it runs
+# in DRY-RUN mode (messages logged to <cache_dir>/notify_outbox.log, not sent).
+# ----------------------------------------------------------------------
+notify:
+  enabled: true
+  run_in_server: true          # also run the notifier loop inside the API server
+  alert_threshold: M           # warn on this class or above: M | X
+  alert_probability: 0.5       # warn when P(>= class within the window) >= this
+  observation_window_h: 24     # verify the prediction after this many hours
+  poll_interval_min: 30        # how often the loop checks
+  alert_cooldown_h: 12         # don't re-warn within this window for the same class
+  daily_forecast_enabled: true # also email a FULL forecast once per day (not just alerts)
+  daily_send_hour_utc: 13      # send the daily forecast at/after this UTC hour
+  history_csv: ""              # prediction-history spreadsheet path (default <project>/prediction_history.csv)
+  recipients:                  # everyone who receives the alert + verification + daily emails
+    - aidangeorge12345@gmail.com
+    - alfantony13@gmail.com
+    - jonahgigi534@gmail.com
+  smtp_host: smtp.gmail.com    # Gmail's SMTP server (blank => dry-run)
+  smtp_port: 587
+  smtp_use_tls: true
+  smtp_user: "solarflarepredictor@gmail.com"   # the Gmail you SEND FROM; App Password via $SMTP_PASSWORD
+  sender: "solarflarepredictor@gmail.com"      # From: address
+  db_path: ""                  # default <cache_dir>/notify.db
+  outbox_log: ""               # default <cache_dir>/notify_outbox.log
+
+api:
+  host: 127.0.0.1
+  port: 8000

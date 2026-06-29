@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Helios — Solar Flare Forecast</title>
+<meta name="description" content="Live solar flare nowcast and 12/24/48-hour forecast from NOAA GOES X-ray flux, NOAA region forecasts, and a SWAN-SF machine-learning model." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* Surfaces — deep space, layered */
+    --bg-0: #05060c;
+    --bg-1: #0b0e1a;
+    --surface: rgba(18, 22, 38, 0.72);
+    --surface-2: rgba(28, 33, 54, 0.65);
+    --border: rgba(120, 140, 200, 0.16);
+    --border-strong: rgba(140, 160, 220, 0.30);
+
+    /* Text */
+    --text: #eaf0ff;
+    --text-dim: #9aa6c8;
+    --text-faint: #6b769a;
+
+    /* Brand / accents */
+    --accent: #4f8cff;
+    --accent-2: #7b5cff;
+
+    /* Flare severity scale (also paired with text+icon, never color alone) */
+    --quiet:   #2fbf71;
+    --c-class: #f5c542;
+    --m-class: #ff8a3d;
+    --x-class: #ff4d5e;
+    --extreme: #ff2bd0;
+
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+    --maxw: 1180px;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    color: var(--text);
+    background: var(--bg-0);
+    line-height: 1.55;
+    overflow-x: hidden;
+  }
+
+  /* Aurora / solar backdrop (decorative, behind everything) */
+  .backdrop {
+    position: fixed; inset: 0; z-index: -2;
+    background:
+      radial-gradient(1100px 700px at 78% -8%, rgba(123, 92, 255, 0.22), transparent 60%),
+      radial-gradient(900px 600px at 8% 0%, rgba(79, 140, 255, 0.18), transparent 55%),
+      radial-gradient(1200px 900px at 50% 120%, rgba(255, 138, 61, 0.10), transparent 60%),
+      linear-gradient(180deg, var(--bg-1), var(--bg-0));
+  }
+  .stars { position: fixed; inset: 0; z-index: -1; opacity: 0.5; }
+
+  a { color: var(--accent); }
+  h1, h2, h3 { font-family: "Space Grotesk", sans-serif; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+  .mono { font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px 64px; }
+
+  /* ---------- Header ---------- */
+  header.top {
+    position: sticky; top: 0; z-index: 40;
+    backdrop-filter: blur(14px);
+    background: linear-gradient(180deg, rgba(5,6,12,0.85), rgba(5,6,12,0.4));
+    border-bottom: 1px solid var(--border);
+  }
+  .top-inner {
+    max-width: var(--maxw); margin: 0 auto; padding: 14px 20px;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo .mark {
+    width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+    background: radial-gradient(circle at 30% 30%, #ffd27a, #ff8a3d 45%, #ff4d5e 100%);
+    box-shadow: 0 0 22px rgba(255, 138, 61, 0.5);
+  }
+  .logo b { font-family: "Space Grotesk", sans-serif; font-size: 1.18rem; letter-spacing: -0.01em; }
+  .logo span { display: block; font-size: 0.72rem; color: var(--text-dim); font-weight: 500; }
+  .spacer { flex: 1; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 13px; border-radius: 999px; font-size: 0.8rem; font-weight: 500;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+  .dot.live { background: var(--quiet); box-shadow: 0 0 0 0 rgba(47,191,113,0.6); animation: ping 2s infinite; }
+  .dot.cached { background: var(--c-class); }
+  .dot.stale { background: var(--x-class); }
+  @keyframes ping { 0%{box-shadow:0 0 0 0 rgba(47,191,113,0.55)} 70%{box-shadow:0 0 0 7px rgba(47,191,113,0)} 100%{box-shadow:0 0 0 0 rgba(47,191,113,0)} }
+
+  button.btn {
+    font-family: inherit; font-size: 0.83rem; font-weight: 600; cursor: pointer;
+    color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--border-strong); border-radius: 10px; padding: 9px 14px;
+    display: inline-flex; align-items: center; gap: 7px; transition: all 0.18s var(--ease);
+  }
+  button.btn:hover { background: rgba(79,140,255,0.16); border-color: var(--accent); }
+  button.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.btn:disabled { opacity: 0.5; cursor: default; }
+  .btn svg.spin { animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- Warning banner ---------- */
+  .alert {
+    margin: 22px 0 4px; border-radius: var(--radius); padding: 16px 18px;
+    display: none; align-items: flex-start; gap: 14px;
+    border: 1px solid var(--x-class);
+    background: linear-gradient(100deg, rgba(255,77,94,0.18), rgba(255,43,208,0.10));
+    box-shadow: 0 0 40px rgba(255,77,94,0.18);
+  }
+  .alert.show { display: flex; }
+  .alert.extreme { border-color: var(--extreme); animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{box-shadow:0 0 40px rgba(255,43,208,0.18)} 50%{box-shadow:0 0 60px rgba(255,43,208,0.42)} }
+  .alert .ic { color: var(--x-class); flex-shrink: 0; margin-top: 2px; }
+  .alert.extreme .ic { color: var(--extreme); }
+  .alert h2 { font-size: 1.05rem; margin-bottom: 3px; }
+  .alert p { margin: 0; color: var(--text-dim); font-size: 0.9rem; }
+
+  /* ---------- Layout grids ---------- */
+  .section-title { display: flex; align-items: baseline; gap: 12px; margin: 34px 0 16px; }
+  .section-title h2 { font-size: 1.15rem; }
+  .section-title .sub { font-size: 0.82rem; color: var(--text-faint); }
+
+  .grid { display: grid; gap: 16px; }
+  .hero-grid { grid-template-columns: 1.3fr 1fr; }
+  .forecast-grid { grid-template-columns: repeat(3, 1fr); }
+  .meta-grid { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 860px) {
+    .hero-grid, .forecast-grid { grid-template-columns: 1fr; }
+    .meta-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px; backdrop-filter: blur(10px); box-shadow: var(--shadow);
+  }
+  .card h3 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); font-weight: 600; }
+
+  /* Current-conditions hero */
+  .now {
+    display: flex; flex-direction: column; gap: 6px; position: relative; overflow: hidden;
+  }
+  .now .state-row { display: flex; align-items: center; gap: 16px; margin-top: 6px; }
+  .badge-class {
+    font-family: "Space Grotesk", sans-serif; font-weight: 700; font-size: 3.4rem; line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px;
+    font-size: 0.82rem; font-weight: 600; border: 1px solid var(--border-strong);
+  }
+  .chip .d { width: 9px; height: 9px; border-radius: 50%; }
+  .now .detail { display: flex; gap: 26px; margin-top: 16px; flex-wrap: wrap; }
+  .now .detail div span { display: block; font-size: 0.74rem; color: var(--text-faint); margin-bottom: 2px; }
+  .now .detail div b { font-size: 1.15rem; font-family: "IBM Plex Mono", monospace; font-weight: 500; }
+
+  /* Headline 24h forecast */
+  .headline { display: flex; flex-direction: column; justify-content: center; }
+  .gauge { display: flex; align-items: center; gap: 18px; margin: 8px 0 4px; }
+  .gauge .ring { width: 96px; height: 96px; flex-shrink: 0; }
+  .gauge .big { font-family: "Space Grotesk"; font-size: 2.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .gauge .lbl { font-size: 0.84rem; color: var(--text-dim); }
+  .src-note { font-size: 0.74rem; color: var(--text-faint); margin-top: 10px; }
+
+  /* Forecast horizon cards */
+  .horizon h3 { display: flex; justify-content: space-between; align-items: center; }
+  .horizon .exp { font-size: 0.74rem; color: var(--text-dim); }
+  .pbar { margin-top: 13px; }
+  .pbar .lab { display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 5px; }
+  .pbar .lab .name { display: flex; align-items: center; gap: 7px; color: var(--text-dim); }
+  .pbar .lab .name i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .pbar .lab .val { font-family: "IBM Plex Mono", monospace; font-weight: 500; }
+  .track { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.07); overflow: hidden; }
+  .track > i { display: block; height: 100%; border-radius: 999px; width: 0; transition: width 0.7s var(--ease); }
+
+  /* Meta tiles */
+  .tile { text-align: left; }
+  .tile span { font-size: 0.74rem; color: var(--text-faint); display: block; margin-bottom: 6px; }
+  .tile b { font-size: 1.5rem; font-family: "Space Grotesk"; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tile small { color: var(--text-dim); font-size: 0.78rem; }
+
+  /* Chart */
+  .chart-card { padding: 20px 18px 12px; }
+  #flux-chart { width: 100%; height: 260px; display: block; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.76rem; color: var(--text-dim); margin-top: 6px; }
+  .legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  /* Hazard map */
+  .map-card { padding: 16px; }
+  .map-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .map-head-right { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .map-toggle { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 9px; overflow: hidden; }
+  .mt-btn { font: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; color: var(--text-dim); background: transparent; border: 0; padding: 7px 12px; transition: all 0.15s var(--ease); }
+  .mt-btn.active { background: rgba(79,140,255,0.18); color: var(--text); }
+  .mt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .mt-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  #hazard-globe { width: 100%; height: 460px; display: block; }
+  #hazard-globe[hidden] { display: none; }
+  @media (max-width: 640px) { #hazard-globe { height: 340px; } }
+  .map-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.76rem; color: var(--text-dim); }
+  .map-legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; margin-right: 5px; }
+  .map-legend .sw.sun { background: radial-gradient(circle at 40% 40%, #ffe39a, #ff8a3d); border-radius: 50%; box-shadow: 0 0 6px #ff8a3d; }
+  .map-legend .sw.night { background: rgba(8,10,22,0.78); border: 1px solid var(--border-strong); }
+  .map-legend .sw.aur { background: linear-gradient(90deg,#54e0a0,#aef9ff); }
+  /* Hazard-layer toggles + Kp pill (STEP 4) */
+  .map-status-group { display:flex; gap:8px; flex-wrap:wrap; }
+  .layer-toggles { display:inline-flex; gap:12px; align-items:center; }
+  .layer-toggles .lyr { display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; color:var(--text-dim); cursor:pointer; user-select:none; }
+  .layer-toggles .lyr input { accent-color:var(--accent); }
+  .lyr-sw { display:inline-block; width:14px; height:8px; border-radius:3px; }
+  .lyr-sw.hf { background:linear-gradient(90deg,#f5c542,#ff4d5e); }
+  .lyr-sw.aur { background:linear-gradient(90deg,#54e0a0,#aef9ff); }
+  .map-wrap { position: relative; width: 100%; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: #05070f; }
+  #hazard-map { width: 100%; display: block; aspect-ratio: 2 / 1; }
+  #hazard-map[hidden] { display: none; }
+  .map-caption { font-size: 0.78rem; color: var(--text-faint); margin: 10px 2px 2px; }
+
+  /* Satellites-at-risk layer (STEP EXTRA) */
+  #sat-controls { display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; margin-top:12px; font-size:0.8rem; }
+  #sat-controls[hidden] { display:none; }
+  .sat-toggle { display:inline-flex; align-items:center; gap:7px; color:var(--text-dim); cursor:pointer; user-select:none; }
+  .sat-toggle input { accent-color:var(--accent); }
+  .sat-legend { display:flex; gap:12px; flex-wrap:wrap; color:var(--text-dim); }
+  .sat-legend .sw { display:inline-block; width:10px; height:10px; border-radius:50%; vertical-align:-1px; margin-right:5px; }
+  .sat-bands { display:inline-flex; gap:4px; }
+  .sat-band { font:inherit; font-size:0.72rem; font-weight:600; cursor:pointer; color:var(--text-dim); background:transparent; border:1px solid var(--border); border-radius:7px; padding:4px 8px; transition:all .15s var(--ease); }
+  .sat-band.active { background:rgba(79,140,255,0.18); color:var(--text); border-color:var(--accent); }
+  .sat-band:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+  .sat-count { color:var(--text-faint); font-family:"IBM Plex Mono",monospace; margin-left:auto; }
+  .sat-count .sat-cdot { display:inline-block; width:8px; height:8px; border-radius:50%; margin:0 3px 0 9px; vertical-align:0; }
+  .sat-count .sat-shown { color:var(--text-dim); }
+  #sat-popup { position:absolute; z-index:6; min-width:208px; max-width:264px; padding:13px 14px; border-radius:12px; background:rgba(10,13,26,0.96); border:1px solid var(--border-strong); box-shadow:var(--shadow); backdrop-filter:blur(8px); color:var(--text); }
+  #sat-popup[hidden] { display:none; }
+  #sat-popup .sat-x { position:absolute; top:6px; right:9px; background:none; border:0; color:var(--text-faint); font-size:1.15rem; line-height:1; cursor:pointer; }
+  #sat-popup .sat-x:hover { color:var(--text); }
+  #sat-popup .sat-name { font-family:"Space Grotesk",sans-serif; font-weight:600; font-size:0.95rem; padding-right:16px; }
+  #sat-popup .sat-tier { font-weight:700; font-size:0.68rem; letter-spacing:0.09em; margin:2px 0 10px; }
+  #sat-popup .sat-dl { display:grid; grid-template-columns:1fr 1fr; gap:8px 12px; margin:0 0 10px; }
+  #sat-popup .sat-dl dt { color:var(--text-faint); font-size:0.66rem; text-transform:uppercase; letter-spacing:0.04em; }
+  #sat-popup .sat-dl dd { margin:1px 0 0; font-family:"IBM Plex Mono",monospace; font-size:0.82rem; }
+  #sat-popup .sat-why { color:var(--text-dim); font-size:0.76rem; line-height:1.45; border-top:1px solid var(--border); padding-top:8px; }
+  .sat-tip { position:absolute; z-index:7; pointer-events:none; background:rgba(8,11,22,0.95); border:1px solid var(--border-strong); border-radius:8px; padding:5px 8px; font-size:0.74rem; color:var(--text); white-space:nowrap; box-shadow:var(--shadow); }
+  .sat-tip[hidden] { display:none; }
+  .sat-tip b { font-family:"Space Grotesk",sans-serif; }
+
+  /* Space-weather impact panel + alerts (STEP 8) */
+  .impact-row { display:flex; gap:14px; padding:12px 2px; border-bottom:1px solid var(--border); }
+  .impact-row:last-child { border-bottom:0; }
+  .impact-code { font-family:"Space Grotesk",sans-serif; font-weight:700; font-size:1.35rem; min-width:46px; line-height:1.2; }
+  .impact-row b { font-size:0.95rem; }
+  .impact-domain { display:block; font-size:0.72rem; color:var(--text-faint); margin-top:1px; }
+  .impact-text { margin:6px 0 0; font-size:0.86rem; color:var(--text-dim); }
+  .impact-alerts { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+  .impact-alerts[hidden] { display:none; }
+  .impact-alert { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; font-size:0.86rem;
+    border:1px solid var(--m-class); background:rgba(255,138,61,0.12); color:var(--text); }
+  .impact-alert.severe { border-color:var(--x-class); background:rgba(255,77,94,0.14); }
+  .impact-alert.watch { border-color:var(--c-class); background:rgba(245,197,66,0.12); }
+  .impact-alert .ia-lvl { font-family:"IBM Plex Mono",monospace; font-weight:600; white-space:nowrap; }
+
+  /* Live skill-vs-lead chart (STEP 7, now interactive) */
+  .exp-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  #exp-chart { width:100%; height:340px; display:block; }
+  @media (max-width:640px){ #exp-chart { height:300px; } }
+  #exp-dl { font-size:0.78rem; color:var(--text-dim); text-decoration:none; border:1px solid var(--border-strong); border-radius:8px; padding:5px 10px; }
+  #exp-dl:hover { color:var(--text); border-color:var(--accent); }
+
+  /* Tracks transparency table */
+  table.tracks { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  table.tracks th, table.tracks td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+  table.tracks th { color: var(--text-faint); font-weight: 600; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  table.tracks td.num { font-family: "IBM Plex Mono", monospace; text-align: right; }
+  table.tracks .muted { color: var(--text-faint); }
+
+  /* Regions table */
+  .region-wrap { overflow-x: auto; }
+  table.regions { width: 100%; border-collapse: collapse; font-size: 0.84rem; min-width: 560px; }
+  table.regions th, table.regions td { padding: 9px 10px; border-bottom: 1px solid var(--border); text-align: right; }
+  table.regions th:first-child, table.regions td:first-child { text-align: left; }
+  table.regions th { color: var(--text-faint); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; cursor: pointer; user-select: none; }
+  table.regions td.num { font-family: "IBM Plex Mono", monospace; }
+  /* Region activity status tags + quiet de-emphasis */
+  .reg-tag { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:999px; font-size:0.64rem; font-weight:600; letter-spacing:0.03em; vertical-align:1px; border:1px solid transparent; white-space:nowrap; }
+  .reg-tag.quiet { color:#9fb0c8; background:rgba(120,140,200,0.12); border-color:var(--border); }
+  .reg-tag.active { color:var(--c-class); background:rgba(245,197,66,0.13); border-color:rgba(245,197,66,0.30); }
+  table.regions tr.reg-quiet { opacity:0.66; }
+  table.regions .q { color:var(--text-faint); }
+
+  footer { margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--border); color: var(--text-faint); font-size: 0.8rem; }
+  footer a { color: var(--text-dim); }
+  .disc { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 12px; }
+
+  /* Skeleton + error */
+  .skel { background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.1), rgba(255,255,255,0.04)); background-size: 200% 100%; animation: shimmer 1.3s infinite; border-radius: 6px; color: transparent !important; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  .error-box { display:none; text-align:center; padding: 28px; color: var(--text-dim); }
+  .error-box.show { display: block; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+  .visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; border:0; }
+</style>
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"></div>
+<canvas class="stars" aria-hidden="true"></canvas>
+
+<header class="top">
+  <div class="top-inner">
+    <div class="logo">
+      <div class="mark" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1a0e00" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5" fill="#1a0e00" stroke="none"/><path d="M12 1.5v3M12 19.5v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1.5 12h3M19.5 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+      </div>
+      <div>
+        <b>Helios</b>
+        <span>Solar Flare Forecast</span>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill" id="freshness" aria-live="polite"><span class="dot" id="fresh-dot"></span><span id="fresh-text">Connecting…</span></span>
+    <button class="btn" id="refresh" aria-label="Refresh forecast">
+      <svg id="refresh-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      Refresh
+    </button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- X-class warning banner (aria-live so screen readers announce it) -->
+  <div class="alert" id="xalert" role="alert" aria-live="assertive">
+    <svg class="ic" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+    <div>
+      <h2 id="xalert-title">X-class flare warning</h2>
+      <p id="xalert-msg"></p>
+    </div>
+  </div>
+
+  <!-- Error state -->
+  <div class="error-box card" id="errbox">
+    <p id="errmsg">Could not reach the forecast service.</p>
+    <button class="btn" onclick="loadAll()">Try again</button>
+  </div>
+
+  <!-- Current conditions + headline forecast -->
+  <div class="section-title"><h2>Current conditions</h2><span class="sub" id="obs-time">—</span></div>
+  <div class="grid hero-grid">
+    <div class="card now">
+      <h3>Live X-ray flux · GOES</h3>
+      <div class="state-row">
+        <span class="badge-class mono" id="now-class">—</span>
+        <span class="chip" id="now-chip"><span class="d"></span><span id="now-state">—</span></span>
+      </div>
+      <div class="detail">
+        <div><span>Current flux (1–8Å)</span><b id="now-flux">— W/m²</b></div>
+        <div><span>24-hour peak</span><b id="peak-class">—</b></div>
+        <div><span>Active regions</span><b id="ar-count">—</b></div>
+      </div>
+    </div>
+
+    <div class="card headline">
+      <h3>24-hour outlook · ensemble</h3>
+      <div class="gauge">
+        <svg class="ring" viewBox="0 0 100 100" id="ring" aria-hidden="true">
+          <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="9"/>
+          <circle cx="50" cy="50" r="42" fill="none" id="ring-fg" stroke="var(--m-class)" stroke-width="9" stroke-linecap="round" stroke-dasharray="264" stroke-dashoffset="264" transform="rotate(-90 50 50)"/>
+        </svg>
+        <div>
+          <div class="big mono" id="ens-pct">—</div>
+          <div class="lbl">chance of an <b>M-class or greater</b> flare</div>
+        </div>
+      </div>
+      <div class="src-note" id="ens-src">—</div>
+    </div>
+  </div>
+
+  <!-- 12 / 24 / 48 h forecast -->
+  <div class="section-title"><h2>Forecast</h2><span class="sub">Probability of ≥1 flare per class, by lead time</span></div>
+  <div class="grid forecast-grid" id="horizons"><!-- filled by JS --></div>
+
+  <!-- Flux chart -->
+  <div class="section-title"><h2>X-ray flux · last 7 days</h2><span class="sub">GOES 1–8Å · log scale</span></div>
+  <div class="card chart-card">
+    <svg id="flux-chart" role="img" aria-label="GOES X-ray flux over the last seven days on a logarithmic scale"></svg>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i>1–8Å flux</span>
+      <span><i style="background:var(--c-class)"></i>C threshold</span>
+      <span><i style="background:var(--m-class)"></i>M threshold</span>
+      <span><i style="background:var(--x-class)"></i>X threshold</span>
+    </div>
+  </div>
+
+  <!-- Geographic hazard map (STEP 2) -->
+  <div class="section-title"><h2>Geographic hazard</h2><span class="sub" id="hazard-sub">Dayside HF-radio-blackout footprint</span></div>
+  <div class="card map-card">
+    <div class="map-head">
+      <div class="map-status-group">
+        <span class="pill" id="hazard-status"><span class="dot"></span><span>—</span></span>
+        <span class="pill" id="geomag-status"><span class="dot"></span><span>—</span></span>
+      </div>
+      <div class="map-head-right">
+        <div class="layer-toggles" role="group" aria-label="Hazard layers">
+          <label class="lyr"><input type="checkbox" id="lyr-hf" checked><span class="lyr-sw hf"></span>HF blackout</label>
+          <label class="lyr"><input type="checkbox" id="lyr-aurora" checked><span class="lyr-sw aur"></span>Aurora</label>
+        </div>
+        <div class="map-toggle" role="group" aria-label="Aurora layer time" title="Auroral oval: current vs forecast storm">
+          <button class="mt-btn active" id="gm-now" aria-pressed="true">Now</button>
+          <button class="mt-btn" id="gm-fcst" aria-pressed="false">Forecast</button>
+        </div>
+        <div class="map-toggle" role="group" aria-label="Map view">
+          <button class="mt-btn active" id="mt-2d" aria-pressed="true">2D map</button>
+          <button class="mt-btn" id="mt-3d" aria-pressed="false">3D globe</button>
+        </div>
+        <div class="map-legend" id="hazard-legend" aria-hidden="true">
+          <span><i class="sw" style="background:var(--c-class)"></i>HF watch</span>
+          <span><i class="sw" style="background:var(--m-class)"></i>HF warning</span>
+          <span><i class="sw" style="background:var(--x-class)"></i>HF severe</span>
+          <span><i class="sw aur"></i>Auroral oval</span>
+          <span><i class="sw sun"></i>Subsolar</span>
+          <span><i class="sw night"></i>Night</span>
+        </div>
+      </div>
+    </div>
+    <div class="map-wrap">
+      <canvas id="hazard-map" role="img"
+        aria-label="World map of the current solar-flare HF-radio-blackout footprint"></canvas>
+      <div id="hazard-globe" hidden aria-label="3D globe of the current HF-radio-blackout footprint"></div>
+      <div id="sat-popup" hidden role="dialog" aria-label="Satellite details"></div>
+    </div>
+    <div id="sat-controls" hidden>
+      <label class="sat-toggle"><input type="checkbox" id="sat-on" checked> Satellites</label>
+      <span class="sat-legend" aria-hidden="true">
+        <span><i class="sw" style="background:var(--quiet)"></i>low</span>
+        <span><i class="sw" style="background:var(--c-class)"></i>elevated</span>
+        <span><i class="sw" style="background:var(--m-class)"></i>high</span>
+        <span><i class="sw" style="background:var(--x-class)"></i>severe</span>
+      </span>
+      <span class="sat-bands" id="sat-bands" role="group" aria-label="Filter satellites by orbit band">
+        <button class="sat-band active" data-band="all">All</button>
+        <button class="sat-band" data-band="LEO">LEO</button>
+        <button class="sat-band" data-band="MEO">MEO</button>
+        <button class="sat-band" data-band="GEO">GEO</button>
+        <button class="sat-band" data-band="beyond">beyond</button>
+      </span>
+      <button class="mt-btn" id="sat-loadall" style="border:1px solid var(--border-strong);border-radius:8px">Load all</button>
+      <span class="sat-count" id="sat-count">—</span>
+    </div>
+    <p class="map-caption" id="hazard-caption">
+      HF-radio-blackout footprint of the current solar flare, from NOAA D-RAP — sunlit side only.
+    </p>
+  </div>
+
+  <!-- Space-weather impacts + aurora visibility + alerts (STEP 8) -->
+  <div class="section-title"><h2>Space-weather impacts</h2><span class="sub" id="impact-sub">NOAA R / S / G scales · plain language</span></div>
+  <div class="card" id="impact-card">
+    <div id="impact-alerts" class="impact-alerts" hidden></div>
+    <div id="impact-rows"></div>
+    <p class="map-caption" id="aurora-view">—</p>
+    <p class="map-caption" id="notify-line" hidden></p>
+    <p class="map-caption" id="notify-history" hidden></p>
+  </div>
+
+  <!-- Forecast tracks transparency -->
+  <div class="section-title"><h2>How this forecast is built</h2><span class="sub">Three independent sources, ensembled</span></div>
+  <div class="card">
+    <table class="tracks" aria-label="Forecast source comparison">
+      <thead><tr><th>Source</th><th style="text-align:right">P(C+) 24h</th><th style="text-align:right">P(M+) 24h</th><th style="text-align:right">P(X) 24h</th></tr></thead>
+      <tbody id="tracks-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Active regions -->
+  <div class="section-title"><h2>Active regions</h2><span class="sub" id="ar-date">NOAA SWPC</span></div>
+  <div class="card region-wrap">
+    <table class="regions" id="regions">
+      <thead><tr>
+        <th data-k="region">Region</th><th data-k="spot_class">Spot class</th><th data-k="mag_class">Mag</th>
+        <th data-k="number_spots">Spots</th><th data-k="c_flare_probability">C %</th>
+        <th data-k="m_flare_probability">M %</th><th data-k="x_flare_probability">X %</th>
+      </tr></thead>
+      <tbody id="regions-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Lead-time vs skill experiment (STEP 7) -->
+  <div class="section-title" id="exp-title" hidden><h2>Forecast skill vs lead time</h2><span class="sub">Experiment · multiple vantage points</span></div>
+  <div class="card" id="exp-card" hidden>
+    <div class="exp-head">
+      <span class="pill" id="exp-live"><span class="dot"></span><span>—</span></span>
+      <a id="exp-dl" href="/api/experiment/leadtime.png" target="_blank" rel="noopener">PNG&nbsp;↗</a>
+    </div>
+    <svg id="exp-chart" role="img" aria-label="Geomagnetic-storm forecast skill versus required lead time"></svg>
+    <div class="legend" id="exp-legend"></div>
+    <p class="map-caption" id="exp-caption">—</p>
+  </div>
+
+  <footer>
+    <div>Data: <a href="https://www.swpc.noaa.gov/" target="_blank" rel="noopener">NOAA SWPC</a> GOES X-ray flux &amp; region summaries · SWAN-SF SHARP model · NASA DONKI. Generated <span id="gen-time">—</span>.</div>
+    <div class="disc" id="disclaimer">—</div>
+  </footer>
+</div>
+
+<!-- SGP4 satellite propagation (client-side positions) -->
+<script src="https://unpkg.com/satellite.js@5.0.0/dist/satellite.min.js"></script>
+<!-- globe.gl + three.js as ES modules sharing ONE three instance, so our custom
+     satellite meshes render with the same renderer. Exposed as globals for the
+     classic script below; if this fails, the 3D button stays disabled (2D works). -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://esm.sh/three@0.185.0",
+  "three/": "https://esm.sh/three@0.185.0/"
+} }
+</script>
+<script type="module">
+  import Globe from 'https://esm.sh/globe.gl@2.34.4?external=three';
+  import * as THREE from 'three';
+  window.Globe = Globe; window.THREE = THREE;
+  window.dispatchEvent(new Event('helios-globe-ready'));
+</script>
+<script>
+// Use a relative URL only when the page is actually served over a real http(s)
+// origin (i.e. by the uvicorn server). When opened as a file or inside a sandboxed
+// / opaque-origin preview (location.origin === 'null'), fall back to the local
+// server's absolute URL so the API is still reachable (CORS is open).
+const API_BASE = new URLSearchParams(location.search).get('api')
+  || (((location.protocol === 'http:' || location.protocol === 'https:')
+        && location.origin && location.origin !== 'null') ? '' : 'http://127.0.0.1:8000');
+const SEV = { 'no-flare':'var(--quiet)', 'C':'var(--c-class)', 'M':'var(--m-class)', 'X':'var(--x-class)' };
+const fmtPct = p => (p==null ? '—' : Math.round(p*100) + '%');
+
+/* ---------- starfield (decorative, reduced-motion aware) ---------- */
+(function stars(){
+  const c = document.querySelector('.stars'), x = c.getContext('2d');
+  function draw(){
+    c.width = innerWidth; c.height = innerHeight;
+    const n = Math.min(140, (innerWidth*innerHeight)/12000);
+    for(let i=0;i<n;i++){
+      x.globalAlpha = Math.random()*0.7+0.1;
+      x.fillStyle = '#cdd8ff';
+      x.beginPath(); x.arc(Math.random()*c.width, Math.random()*c.height, Math.random()*1.3, 0, 7); x.fill();
+    }
+  }
+  draw(); addEventListener('resize', ()=>{ x.clearRect(0,0,c.width,c.height); draw(); });
+})();
+
+/* ---------- helpers ---------- */
+function setFreshness(status, ageMin){
+  const dot = document.getElementById('fresh-dot'), txt = document.getElementById('fresh-text');
+  dot.className = 'dot ' + (status||'');
+  const age = ageMin==null ? '' : ` · ${Math.round(ageMin)} min old`;
+  txt.textContent = ({live:'Live data', cached:'Cached data', unavailable:'Data unavailable'}[status]||'…') + age;
+}
+
+function pbar(name, color, p){
+  return `<div class="pbar">
+    <div class="lab"><span class="name"><i style="background:${color}"></i>${name}</span>
+      <span class="val">${fmtPct(p)}</span></div>
+    <div class="track"><i style="background:${color}" data-w="${(p||0)*100}"></i></div></div>`;
+}
+
+/* ---------- main load ---------- */
+async function loadAll(){
+  const btn = document.getElementById('refresh'), ic = document.getElementById('refresh-ic');
+  btn.disabled = true; ic.classList.add('spin');
+  document.getElementById('errbox').classList.remove('show');
+  try {
+    const r = await fetch(API_BASE + '/api/forecast', {cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    render(await r.json());
+    loadFlux();           // chart loads independently; failure is non-fatal
+    loadHazard();         // hazard map loads independently; failure is non-fatal
+    loadGeomag();         // high-latitude geomagnetic layer (now); failure is non-fatal
+    loadStorm();          // geomagnetic-storm forecast (for the Forecast oval); non-fatal
+    loadExperiment();     // STEP 7 figure (only shows if generated); non-fatal
+    loadImpact();         // STEP 8 plain-language impacts; non-fatal
+    loadAlerts();         // STEP 8 threshold alerts; non-fatal
+    loadNotify();         // email-notifier status line; non-fatal
+    if(mapMode==='3d' && satEnabled) loadSatellites(satScope);  // refresh sat risk vs current flare
+  } catch(e){
+    document.getElementById('errmsg').textContent =
+      'Could not reach the forecast service at ' + (API_BASE||location.origin) +
+      '. Is the API running?  (uvicorn api.server:app --port 8000)';
+    document.getElementById('errbox').classList.add('show');
+    setFreshness('unavailable', null);
+  } finally {
+    btn.disabled = false; ic.classList.remove('spin');
+  }
+}
+
+function render(d){
+  setFreshness(d.data_freshness.status, d.data_freshness.xray_age_minutes);
+  document.getElementById('gen-time').textContent = new Date(d.generated_at).toLocaleString();
+  document.getElementById('disclaimer').textContent = d.disclaimer;
+
+  /* nowcast */
+  const nc = d.nowcast || {};
+  const cat = nc.current_category || 'no-flare';
+  document.getElementById('now-class').textContent = nc.current_class || '—';
+  document.getElementById('now-class').style.color = SEV[cat] || 'var(--text)';
+  document.getElementById('obs-time').textContent = nc.observed_at ? 'observed ' + new Date(nc.observed_at).toLocaleTimeString() : '';
+  const chip = document.getElementById('now-chip');
+  chip.querySelector('.d').style.background = SEV[cat];
+  chip.style.color = SEV[cat]; chip.style.borderColor = SEV[cat];
+  document.getElementById('now-state').textContent = nc.is_flaring ? ('Flaring · '+cat+'-class') : 'Quiet (no significant flare)';
+  document.getElementById('now-flux').textContent = nc.current_flux_wm2 ? nc.current_flux_wm2.toExponential(2)+' W/m²' : '—';
+  document.getElementById('peak-class').textContent = nc.peak_24h_class || '—';
+  document.getElementById('peak-class').style.color = SEV[catFromClass(nc.peak_24h_class)] || 'var(--text)';
+  document.getElementById('ar-count').textContent = d.active_region_count ?? '—';
+
+  /* X warning */
+  const w = (nc.x_warning)||{level:'NONE'};
+  const al = document.getElementById('xalert');
+  if(w.level && w.level!=='NONE'){
+    al.classList.add('show'); al.classList.toggle('extreme', w.level==='EXTREME');
+    document.getElementById('xalert-title').textContent = `${w.level} — ${w.scale||'radio blackout risk'}`;
+    document.getElementById('xalert-msg').textContent = w.message;
+  } else { al.classList.remove('show'); }
+
+  /* ensemble 24h ring */
+  const ens = (d.forecast.ensemble_24h)||{};
+  const p = ens.p_M_or_greater_24h;
+  document.getElementById('ens-pct').textContent = fmtPct(p);
+  const ringColor = p>=0.5?'var(--x-class)':p>=0.25?'var(--m-class)':p>=0.1?'var(--c-class)':'var(--quiet)';
+  const fg = document.getElementById('ring-fg');
+  fg.style.stroke = ringColor;
+  requestAnimationFrame(()=>{ fg.style.transition='stroke-dashoffset .9s var(--ease)'; fg.style.strokeDashoffset = 264*(1-(p||0)); });
+  document.getElementById('ens-src').textContent = 'Blended from: ' + ((ens.sources||[]).join(', ') || 'no live sources') +
+    '. Higher weight on NOAA operational + SHARP ML.';
+
+  /* horizon cards */
+  const ft = d.forecast.flux_track||{}, H = ft.horizons||{};
+  const host = document.getElementById('horizons'); host.innerHTML='';
+  [['12h','12-hour'],['24h','24-hour'],['48h','48-hour']].forEach(([k,title])=>{
+    const h = H[k]||{};
+    const card = document.createElement('div'); card.className='card horizon';
+    card.innerHTML = `<h3>${title} <span class="exp">peak: ${h.expected_max_class||'—'}</span></h3>
+      ${pbar('C-class+','var(--c-class)',h.p_C_or_greater)}
+      ${pbar('M-class+','var(--m-class)',h.p_M_or_greater)}
+      ${pbar('X-class','var(--x-class)',h.p_X_class)}`;
+    host.appendChild(card);
+  });
+  requestAnimationFrame(()=>document.querySelectorAll('.track > i').forEach(i=>i.style.width=i.dataset.w+'%'));
+
+  /* tracks table */
+  const noaa = d.forecast.noaa_track||{}, sharp = d.forecast.sharp_track, smodel = d.forecast.sharp_model;
+  const row = (name, c, m, x, note) => `<tr><td>${name}${note?` <span class="muted">· ${note}</span>`:''}</td>
+    <td class="num">${fmtPct(c)}</td><td class="num">${fmtPct(m)}</td><td class="num">${fmtPct(x)}</td></tr>`;
+  let sharpNote;
+  if (sharp) sharpNote = `live · TSS ${Number(sharp.test_tss).toFixed(2)}`;
+  else if (smodel && smodel.trained) sharpNote = `trained TSS ${Number(smodel.test_tss).toFixed(2)}${smodel.synthetic?' (demo)':''} · awaiting magnetic input`;
+  else sharpNote = 'not trained';
+  let body = '';
+  body += row('NOAA SWPC (official)', noaa.p_C_or_greater_24h, noaa.p_M_or_greater_24h, noaa.p_X_class_24h, noaa.available?'live':'offline');
+  body += row('SWAN-SF SHARP model', null, sharp? sharp.p_M_or_greater_24h : null, null, sharpNote);
+  body += row('Flux persistence', H['24h']?.p_C_or_greater, H['24h']?.p_M_or_greater, H['24h']?.p_X_class, 'baseline');
+  document.getElementById('tracks-body').innerHTML = body;
+
+  loadRegions();
+}
+
+function catFromClass(code){
+  if(!code) return 'no-flare';
+  const L = code[0], mag = parseFloat(code.slice(1))||0;
+  if(L==='X') return 'X'; if(L==='M') return 'M';
+  if(L==='C' && mag>=5) return 'C'; return 'no-flare';
+}
+
+/* ---------- regions (separate fetch for the detailed table) ---------- */
+let regionData = [], sortKey='m_flare_probability', sortDir=-1;
+async function loadRegions(){
+  try{
+    const r = await fetch(API_BASE + '/api/regions', {cache:'no-store'});
+    if(!r.ok) return; const j = await r.json();
+    regionData = j.regions||[];
+    if(j.observed_date) document.getElementById('ar-date').textContent = 'NOAA SWPC · '+j.observed_date;
+    drawRegions();
+  }catch(e){/* table is optional */}
+}
+function drawRegions(){
+  const rows = [...regionData].sort((a,b)=>((a[sortKey]??-1)-(b[sortKey]??-1))*sortDir);
+  const dash = v => (v==null||v==='') ? '<span class="q">—</span>' : escapeHtml(v);  // attribute missing
+  const prob = v => (v==null||v===0) ? '<span class="q">0</span>' : v;          // 0% chance, not blank
+  document.getElementById('regions-body').innerHTML = rows.map(r=>{
+    const c=r.c_flare_probability||0, m=r.m_flare_probability||0, x=r.x_flare_probability||0;
+    const quiet = !(c>0 || m>0 || x>0);
+    const tag = quiet
+      ? '<span class="reg-tag quiet" title="No significant sunspots or flare probability — region is calm">Quiet</span>'
+      : '<span class="reg-tag active" title="Producing a measurable flare probability">Active</span>';
+    return `<tr class="${quiet?'reg-quiet':''}">
+      <td>AR ${escapeHtml(r.region??'—')}${tag}</td>
+      <td>${dash(r.spot_class)}</td>
+      <td>${dash(r.mag_class)}</td>
+      <td class="num">${(r.number_spots==null)?'<span class="q">0</span>':r.number_spots}</td>
+      <td class="num">${prob(c)}</td>
+      <td class="num" style="color:${m>=30?'var(--m-class)':'inherit'}">${prob(m)}</td>
+      <td class="num" style="color:${x>=10?'var(--x-class)':'inherit'}">${prob(x)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" class="muted">No active regions reported.</td></tr>';
+}
+document.querySelectorAll('#regions th').forEach(th=>th.addEventListener('click',()=>{
+  const k=th.dataset.k; sortDir = (k===sortKey)? -sortDir : -1; sortKey=k; drawRegions();
+}));
+
+/* ---------- flux chart (log-scale SVG) ---------- */
+async function loadFlux(){
+  const svg = document.getElementById('flux-chart');
+  try{
+    const r = await fetch(API_BASE + '/api/flux', {cache:'no-store'});
+    if(!r.ok) throw 0; const j = await r.json();
+    drawChart(svg, j.series||[]);
+  }catch(e){ svg.innerHTML = `<text x="20" y="40" fill="var(--text-faint)" font-size="13">Flux chart unavailable.</text>`; }
+}
+function drawChart(svg, series){
+  const W = svg.clientWidth||900, Hh = 260, pad = {l:46,r:14,t:14,b:24};
+  svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+  if(!series.length){ svg.innerHTML=`<text x="20" y="40" fill="var(--text-faint)">No data.</text>`; return; }
+  const xs = series.map(p=>new Date(p.t).getTime());
+  const x0=Math.min(...xs), x1=Math.max(...xs);
+  const yMin=Math.log10(1e-9), yMax=Math.log10(1e-3);
+  const X = t => pad.l + (t-x0)/(x1-x0||1)*(W-pad.l-pad.r);
+  const Y = f => { const v=Math.log10(Math.max(f,1e-9)); return pad.t + (1-(v-yMin)/(yMax-yMin))*(Hh-pad.t-pad.b); };
+  const bands = [[1e-6,'C','var(--c-class)'],[1e-5,'M','var(--m-class)'],[1e-4,'X','var(--x-class)']];
+  let g = '';
+  bands.forEach(([f,lab,c])=>{ const y=Y(f);
+    g += `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="${c}" stroke-opacity="0.35" stroke-dasharray="4 4"/>`;
+    g += `<text x="${pad.l-6}" y="${y+3}" text-anchor="end" fill="${c}" font-size="10" font-family="IBM Plex Mono">${lab}</text>`;
+  });
+  let dpath = series.map((p,i)=>`${i?'L':'M'}${X(new Date(p.t).getTime()).toFixed(1)},${Y(p.flux).toFixed(1)}`).join(' ');
+  const area = dpath + ` L${X(x1)},${Hh-pad.b} L${X(x0)},${Hh-pad.b} Z`;
+  // time axis (every ~day)
+  let ticks='';
+  for(let i=0;i<=7;i++){ const t=x0+(x1-x0)*i/7, xx=X(t);
+    ticks += `<text x="${xx}" y="${Hh-6}" text-anchor="middle" fill="var(--text-faint)" font-size="10">${new Date(t).toLocaleDateString(undefined,{month:'numeric',day:'numeric'})}</text>`; }
+  svg.innerHTML = `<defs><linearGradient id="fg" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="var(--accent)" stop-opacity="0.35"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/>
+    </linearGradient></defs>
+    ${g}<path d="${area}" fill="url(#fg)"/><path d="${dpath}" fill="none" stroke="var(--accent)" stroke-width="1.6"/>${ticks}`;
+}
+
+/* ---------- hazard map (equirectangular canvas) ----------
+   buildHazardTexture() is intentionally standalone: STEP 3's 3D globe reuses
+   the SAME function to texture the sphere — only the rendering target differs. */
+let hazardData = null, geomagData = null, stormData = null, mapMode = '2d',
+    showHF = true, showAurora = true, geomagMode = 'now';   // geomagMode: now | forecast
+const MAP_EARTH_SRC = 'https://unpkg.com/three-globe/example/img/earth-dark.jpg';
+let earthImg = null, earthReady = false, earthFailed = false;
+(function loadEarth(){
+  earthImg = new Image(); earthImg.crossOrigin = 'anonymous';
+  earthImg.onload  = ()=>{ earthReady = true;  drawHazardMap(); if(mapMode==='3d') updateGlobe(); };
+  earthImg.onerror = ()=>{ earthFailed = true; drawHazardMap(); if(mapMode==='3d') updateGlobe(); };
+  earthImg.src = MAP_EARTH_SRC;
+})();
+
+const MAJOR_CITIES = [
+  {n:'New York',lat:40.7,lon:-74.0},{n:'London',lat:51.5,lon:-0.1},
+  {n:'Tokyo',lat:35.7,lon:139.7},{n:'Sydney',lat:-33.9,lon:151.2},
+  {n:'São Paulo',lat:-23.5,lon:-46.6},{n:'Cairo',lat:30.0,lon:31.2},
+  {n:'Mumbai',lat:19.1,lon:72.9},{n:'Beijing',lat:39.9,lon:116.4},
+  {n:'Los Angeles',lat:34.1,lon:-118.2},{n:'Moscow',lat:55.8,lon:37.6},
+  {n:'Johannesburg',lat:-26.2,lon:28.0},{n:'Singapore',lat:1.35,lon:103.8},
+];
+const D2R = Math.PI/180;
+const HAF_STOPS = [ /* MHz, r,g,b,a */
+  [3,245,197,66,0],[6,245,197,66,70],[12,255,160,60,150],
+  [20,255,120,60,200],[30,255,77,94,235],[40,255,43,208,255] ];
+function hafColor(v){
+  if(v<=HAF_STOPS[0][0]) return [0,0,0,0];
+  for(let i=1;i<HAF_STOPS.length;i++){
+    const a=HAF_STOPS[i-1], b=HAF_STOPS[i];
+    if(v<=b[0]){ const t=(v-a[0])/(b[0]-a[0]);
+      return [a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t,a[3]+(b[3]-a[3])*t,a[4]+(b[4]-a[4])*t]; }
+  }
+  const L=HAF_STOPS[HAF_STOPS.length-1]; return [L[1],L[2],L[3],L[4]];
+}
+/* SHARED with STEP 3: D-RAP grid -> equirectangular RGBA heat texture canvas */
+function buildHazardTexture(grid){
+  const W=grid.lons.length, H=grid.lats.length;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d'); const img=ctx.createImageData(W,H);
+  for(let i=0;i<H;i++) for(let j=0;j<W;j++){
+    const [r,g,b,a]=hafColor(grid.values[i][j]); const k=(i*W+j)*4;
+    img.data[k]=r; img.data[k+1]=g; img.data[k+2]=b; img.data[k+3]=a;
+  }
+  ctx.putImageData(img,0,0); return cv;
+}
+const projX=(lon,W)=>(lon+180)/360*W, projY=(lat,H)=>(90-lat)/180*H;
+
+/* Aurora (% visible) -> green-teal heat texture. SHARED by 2D map + 3D globe,
+   mirrors buildHazardTexture so the high-latitude layer textures the same way. */
+const AUR_STOPS = [ /* %, r,g,b,a */
+  [5,80,255,150,0],[10,80,255,150,90],[35,120,255,190,150],
+  [60,170,255,215,200],[100,225,255,240,235] ];
+function auroraColor(v){
+  if(v<=AUR_STOPS[0][0]) return [0,0,0,0];
+  for(let i=1;i<AUR_STOPS.length;i++){
+    const a=AUR_STOPS[i-1], b=AUR_STOPS[i];
+    if(v<=b[0]){ const t=(v-a[0])/(b[0]-a[0]);
+      return [a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t,a[3]+(b[3]-a[3])*t,a[4]+(b[4]-a[4])*t]; }
+  }
+  const L=AUR_STOPS[AUR_STOPS.length-1]; return [L[1],L[2],L[3],L[4]];
+}
+function buildAuroraTexture(grid){
+  const W=grid.lons.length, H=grid.lats.length;
+  const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d'); const img=ctx.createImageData(W,H);
+  for(let i=0;i<H;i++) for(let j=0;j<W;j++){
+    const [r,g,b,a]=auroraColor(grid.values[i][j]); const k=(i*W+j)*4;
+    img.data[k]=r; img.data[k+1]=g; img.data[k+2]=b; img.data[k+3]=a;
+  }
+  ctx.putImageData(img,0,0); return cv;
+}
+
+async function loadHazard(){
+  try{
+    const r=await fetch(API_BASE+'/api/hazard',{cache:'no-store'});
+    if(!r.ok) throw 0;
+    hazardData=await r.json(); updateHazardStatus(); drawHazardMap();
+    if(mapMode==='3d') updateGlobe();
+  }catch(e){
+    const st=document.getElementById('hazard-status');
+    st.querySelector('.dot').className='dot stale';
+    st.querySelector('span:last-child').textContent='Hazard data unavailable';
+  }
+}
+function updateHazardStatus(){
+  const hb=hazardData.hf_blackout, st=document.getElementById('hazard-status');
+  st.querySelector('.dot').className='dot '+(hb.status==='live'?'live':hb.status==='cached'?'cached':'stale');
+  const src=hb.source==='noaa-drap'?'NOAA D-RAP':'Synthesised (D-RAP down)';
+  const rscale=hb.r_scale&&hb.r_scale.scale!=null?hb.r_scale.scale:'—';
+  st.querySelector('span:last-child').textContent=`${src} · ${hb.status} · flare ${hb.current_flare_class||'—'} · R${rscale}`;
+  const n=hazardData.danger_cells.length;
+  document.getElementById('hazard-sub').textContent=
+    n?`${n} affected cells · peak ${hb.peak_haf_mhz} MHz`:'No active radio blackout (quiet Sun)';
+  document.getElementById('hazard-caption').textContent=hb.source==='noaa-drap'
+    ?'HF-radio-blackout footprint of the current solar flare, from NOAA D-RAP — sunlit side only. Colour = highest affected frequency (MHz).'
+    :'D-RAP unavailable — dayside footprint estimated from the live flare class (sunlit side only).';
+}
+/* ---------- high-latitude geomagnetic layer (STEP 4): OVATION oval + Kp ---------- */
+async function loadGeomag(){
+  try{
+    const r=await fetch(API_BASE+'/api/geomag',{cache:'no-store'});
+    if(!r.ok) throw 0;
+    geomagData=await r.json(); updateGeomagStatus(); drawHazardMap();
+    const av=geomagData.aurora_view, ael=document.getElementById('aurora-view');
+    if(ael) ael.textContent = (av&&av.available) ? ('Aurora visibility — '+av.note) : '';
+    if(mapMode==='3d') updateGlobe();
+  }catch(e){
+    const st=document.getElementById('geomag-status');
+    if(st){ st.querySelector('.dot').className='dot stale';
+      st.querySelector('span:last-child').textContent='Geomagnetic data unavailable'; }
+  }
+}
+function updateGeomagStatus(){
+  const st=document.getElementById('geomag-status'); if(!st) return;
+  if(geomagMode==='forecast'){                       // STEP 6: predicted oval + storm probability
+    const s=stormData;
+    if(!s){ st.querySelector('.dot').className='dot'; st.querySelector('span:last-child').textContent='Forecast loading…'; return; }
+    st.querySelector('.dot').className='dot '+(s.data_status==='live'?'live':s.data_status==='cached'?'cached':'stale');
+    const k=s.forecast_kp, g=s.forecast_g_scale;
+    const kpv = k!=null ? ('Kp '+(Number.isInteger(k)?k:Number(k).toFixed(1))) : 'Kp —';
+    const gtxt = g!=null ? (g>0?' · G'+g:' · G0') : '';
+    const pm = (s.ml_forecast&&s.ml_forecast.available) ? ' · P(storm) '+Math.round(s.ml_forecast.p_storm*100)+'%' : '';
+    st.querySelector('span:last-child').textContent = `Forecast ${kpv}${gtxt}${pm}`;
+    return;
+  }
+  if(!geomagData) return;
+  const kp=geomagData.kp||{}, au=geomagData.aurora||{};
+  st.querySelector('.dot').className='dot '+(au.status==='live'?'live':au.status==='cached'?'cached':'stale');
+  const kpv = kp.kp!=null ? ('Kp '+(Number.isInteger(kp.kp)?kp.kp:Number(kp.kp).toFixed(1))) : 'Kp —';
+  const g = kp.g_scale!=null ? (kp.g_scale>0 ? ' · G'+kp.g_scale : ' · G0 (quiet)') : '';
+  const src = au.source==='noaa-ovation' ? 'OVATION' : au.source==='synthesized-from-kp' ? 'Kp-model' : '—';
+  st.querySelector('span:last-child').textContent = `${kpv}${g} · ${src}`;
+}
+
+/* STEP 6: storm-forecast feed + now/forecast oval selection */
+async function loadStorm(){
+  try{
+    const r=await fetch(API_BASE+'/api/storm',{cache:'no-store'});
+    if(!r.ok) throw 0;
+    stormData=await r.json();
+    if(geomagMode==='forecast'){ updateGeomagStatus(); drawHazardMap(); if(mapMode==='3d') updateGlobe(); }
+  }catch(e){ /* forecast is optional; the 'now' layer still works */ }
+}
+/* Which auroral grid the high-latitude layer renders: live OVATION ('now') or the
+   storm model's predicted oval ('forecast'). Falls back to 'now' if no forecast yet. */
+function activeAuroraGrid(){
+  if(geomagMode==='forecast' && stormData && stormData.forecast_oval) return stormData.forecast_oval;
+  return geomagData ? geomagData.aurora.grid : null;
+}
+
+/* STEP 7 (live): interactive skill-vs-lead chart. The backend recomputes the
+   rolling-window result from live data when it goes stale; this auto-refreshes. */
+let expData=null, _expTimer=null;
+async function loadExperiment(){
+  try{
+    const r=await fetch(API_BASE+'/api/experiment/leadtime',{cache:'no-store'});
+    if(r.status===202){                                   // first-time generation in progress
+      document.getElementById('exp-title').hidden=false; document.getElementById('exp-card').hidden=false;
+      setExpLive('refreshing'); clearTimeout(_expTimer); _expTimer=setTimeout(loadExperiment,20000); return;
+    }
+    if(!r.ok) return;
+    const j=await r.json(); if(!j.curves) return; expData=j;
+    document.getElementById('exp-dl').href=API_BASE+'/api/experiment/leadtime.png';
+    drawSkillChart(document.getElementById('exp-chart'), j);
+    drawSkillLegend(j);
+    const lm=j.live_meta||{};
+    setExpLive(lm.refreshing?'refreshing':'live', lm.age_hours);
+    const best=a=>(a&&a.length)?a.reduce((x,y)=>y.tss>x.tss?y:x):null;
+    const l1=best(j.curves&&j.curves.l1_solar_wind), cme=best(j.cme_donki);
+    let cap=`Rolling held-out test window of ${j.test_days} days (storm-day rate ${(j.test_base_rate*100).toFixed(0)}%). `;
+    if(l1) cap+=`L1 best TSS ${l1.tss.toFixed(2)} at ${l1.lead_days}-day lead. `;
+    if(cme) cap+=`CME (DONKI) TSS ${cme.tss.toFixed(2)} at ${cme.lead_days} days. `;
+    cap+='Skill is scored on real outcomes, so the window ends today and slides forward as new storms occur.';
+    document.getElementById('exp-caption').textContent=cap;
+    document.getElementById('exp-title').hidden=false; document.getElementById('exp-card').hidden=false;
+    if(lm.refreshing){ clearTimeout(_expTimer); _expTimer=setTimeout(loadExperiment,25000); }   // pick up the fresh recompute
+  }catch(e){ /* experiment is optional */ }
+}
+function setExpLive(state, ageH){
+  const pill=document.getElementById('exp-live'); if(!pill) return;
+  const dot=pill.querySelector('.dot'), txt=pill.querySelector('span:last-child');
+  if(state==='refreshing'){ dot.className='dot cached'; txt.textContent='Updating from live data…'; return; }
+  dot.className='dot live';
+  txt.textContent = (ageH==null)?'Live':(ageH<1?`Live · updated ${Math.max(1,Math.round(ageH*60))} min ago`
+                                              :`Live · updated ${ageH.toFixed(1)} h ago`);
+}
+function _star(cx,cy,r){ let p=''; for(let i=0;i<10;i++){ const a=Math.PI/5*i-Math.PI/2, rr=i%2?r*0.45:r,
+  x=cx+rr*Math.cos(a), y=cy+rr*Math.sin(a); p+=(i?'L':'M')+x.toFixed(1)+','+y.toFixed(1); } return p+'Z'; }
+function drawSkillChart(svg,d){
+  if(!svg) return;
+  const W=svg.clientWidth||840, H=svg.clientHeight||340, pad={l:46,r:14,t:14,b:38};
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const pers=(d.curves&&d.curves.persistence)||[], l1=(d.curves&&d.curves.l1_solar_wind)||[], cme=d.cme_donki||[];
+  const leads=[...pers,...l1,...cme].map(p=>p.lead_days).concat(d.recurrence_27d?[d.recurrence_27d.lead_days]:[]);
+  const xMax=Math.max(30,...leads,1), xMin=0, yMin=-0.1, yMax=1.0;
+  const X=v=>pad.l+(v-xMin)/(xMax-xMin)*(W-pad.l-pad.r);
+  const Y=v=>pad.t+(1-(v-yMin)/(yMax-yMin))*(H-pad.t-pad.b);
+  let g='';
+  for(let t=0;t<=1.0001;t+=0.2){ const y=Y(t);
+    g+=`<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="#222a44"/>`;
+    g+=`<text x="${pad.l-6}" y="${y+3}" text-anchor="end" fill="var(--text-faint)" font-size="10">${t.toFixed(1)}</text>`; }
+  [0,5,10,15,20,25,30].filter(t=>t<=xMax).forEach(t=>{
+    g+=`<text x="${X(t)}" y="${H-pad.b+15}" text-anchor="middle" fill="var(--text-faint)" font-size="10">${t}</text>`; });
+  g+=`<line x1="${pad.l}" y1="${Y(0)}" x2="${W-pad.r}" y2="${Y(0)}" stroke="var(--x-class)" stroke-dasharray="5 4" stroke-width="1.3"/>`;
+  const lineFor=(pts,color)=>{ if(!pts.length) return '';
+    const s=[...pts].sort((a,b)=>a.lead_days-b.lead_days);
+    const path=s.map((p,i)=>`${i?'L':'M'}${X(p.lead_days).toFixed(1)},${Y(p.tss).toFixed(1)}`).join(' ');
+    const dots=s.map(p=>`<circle cx="${X(p.lead_days).toFixed(1)}" cy="${Y(p.tss).toFixed(1)}" r="3.4" fill="${color}"><title>${p.lead_days}-day lead · TSS ${p.tss.toFixed(3)}</title></circle>`).join('');
+    return `<path d="${path}" fill="none" stroke="${color}" stroke-width="2"/>${dots}`; };
+  g+=lineFor(l1,'#4f8cff')+lineFor(pers,'#f5c542'); if(cme.length) g+=lineFor(cme,'#2fbf71');
+  if(d.recurrence_27d){ const r=d.recurrence_27d;
+    g+=`<path d="${_star(X(r.lead_days),Y(r.tss),7)}" fill="#ff8a3d" stroke="#0b0e1a" stroke-width="0.5"><title>27-day recurrence · TSS ${r.tss.toFixed(3)}</title></path>`; }
+  g+=`<text x="${pad.l+(W-pad.l-pad.r)/2}" y="${H-3}" text-anchor="middle" fill="var(--text-dim)" font-size="11">Forecast lead time (days ahead)</text>`;
+  g+=`<text transform="translate(12,${pad.t+(H-pad.t-pad.b)/2}) rotate(-90)" text-anchor="middle" fill="var(--text-dim)" font-size="11">Skill (TSS)</text>`;
+  svg.innerHTML=g;
+}
+function drawSkillLegend(d){
+  const host=document.getElementById('exp-legend'); if(!host) return;
+  const items=[['#4f8cff','L1 solar wind'],['#f5c542','Persistence']];
+  if((d.cme_donki||[]).length) items.push(['#2fbf71','CME (DONKI)']);
+  if(d.recurrence_27d) items.push(['#ff8a3d','27-day recurrence']);
+  items.push(['var(--x-class)','Climatology (no skill)']);
+  host.innerHTML=items.map(([c,l])=>`<span><i style="background:${c}"></i>${l}</span>`).join('');
+}
+
+/* STEP 8: plain-language R/S/G impact statements + threshold alerts */
+async function loadImpact(){
+  try{
+    const r=await fetch(API_BASE+'/api/impact',{cache:'no-store'}); if(!r.ok) return;
+    const j=await r.json(); const host=document.getElementById('impact-rows'); host.innerHTML='';
+    ['R','S','G'].forEach(k=>{ const s=j.scales[k]; if(!s) return;
+      const tone = s.level>=4?'var(--x-class)': s.level>=3?'var(--m-class)': s.level>=1?'var(--c-class)':'var(--quiet)';
+      host.insertAdjacentHTML('beforeend',
+        '<div class="impact-row"><span class="impact-code" style="color:'+tone+'">'+s.code+'</span>'+
+        '<div><b>'+s.name+'</b><span class="impact-domain">'+s.domain+'</span>'+
+        '<p class="impact-text">'+s.statement+'</p></div></div>');
+    });
+    document.getElementById('impact-sub').textContent =
+      j.all_quiet ? 'All quiet · NOAA R/S/G scales' : 'Active space weather · NOAA R/S/G scales';
+  }catch(e){ /* optional */ }
+}
+async function loadAlerts(){
+  try{
+    const r=await fetch(API_BASE+'/api/alerts',{cache:'no-store'}); if(!r.ok) return;
+    const j=await r.json(); const box=document.getElementById('impact-alerts');
+    if(!j.alerts||!j.alerts.length){ box.hidden=true; box.innerHTML=''; return; }
+    box.innerHTML = j.alerts.map(a=>'<div class="impact-alert '+(a.severity||'')+'">'+
+      '<span class="ia-lvl">'+a.level+'</span><span>'+a.message+'</span></div>').join('');
+    box.hidden=false;
+  }catch(e){ /* optional */ }
+}
+async function loadNotify(){
+  try{
+    const r=await fetch(API_BASE+'/api/notify/status',{cache:'no-store'}); if(!r.ok) return;
+    const j=await r.json(); const el=document.getElementById('notify-line'); if(!el) return;
+    if(!j.enabled){ el.hidden=true; return; }
+    const nrec = (j.recipients&&j.recipients.length)||0;
+    const mode = j.mode==='live-email' ? ('live email → '+nrec+' recipient'+(nrec===1?'':'s'))
+                                       : 'dry-run (set $SMTP_PASSWORD in the server env to send)';
+    const daily = j.daily_forecast ? ('daily forecast @ '+(j.daily_send_hour_utc ?? 13)+':00 UTC') : 'daily forecast off';
+    el.textContent = `Flare email notifier: ${mode} · armed for ${j.threshold}-class+ at ≥`+
+      `${Math.round(j.alert_probability*100)}% · ${daily} · verifies after ${j.observation_window_h} h · ${j.pending} pending`;
+    el.hidden=false;
+    const h=j.history||{}, el2=document.getElementById('notify-history');
+    if(el2){
+      const acc=j.accuracy||{};
+      const fmtSkill=v=>(v==null?'—':(v>0?'+':'')+v.toFixed(2));
+      const skillColor=v=>(v==null?'var(--text-faint)':(v>0?'var(--c-class)':'var(--x-class)'));
+      let accLine;
+      if(acc.available){
+        accLine = `<div class="notify-acc">Peak-magnitude accuracy <span class="muted">(n=${acc.n}, honest log-flux skill)</span>: `+
+          `mean error <b>${acc.mae_model_dex} dex</b> · skill vs persistence `+
+          `<b style="color:${skillColor(acc.skill_vs_persistence)}">${fmtSkill(acc.skill_vs_persistence)}</b> · `+
+          `vs climatology <b style="color:${skillColor(acc.skill_vs_climatology)}">${fmtSkill(acc.skill_vs_climatology)}</b><br>`+
+          `<span class="muted">${escapeHtml(acc.verdict||'')}</span></div>`;
+      } else {
+        accLine = `<div class="notify-acc muted">Peak-magnitude accuracy: ${escapeHtml(acc.note||'builds over time as forecasts verify.')}</div>`;
+      }
+      el2.innerHTML = `Prediction log: ${h.total||0} forecasts recorded (${h.verified||0} verified · ${h.hits||0} hits) · `+
+        `<a href="${API_BASE}${h.csv_url||'/api/notify/history.csv'}">Download spreadsheet (CSV) ↗</a>`+
+        accLine;
+      el2.hidden=false;
+    }
+  }catch(e){ /* optional */ }
+}
+
+function drawHazardMap(){
+  const cv=document.getElementById('hazard-map'); if(!cv) return;
+  const dpr=Math.min(devicePixelRatio||1,2);
+  const W=cv.clientWidth||800, H=Math.round(W/2);
+  cv.width=W*dpr; cv.height=H*dpr;
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  if(earthReady) ctx.drawImage(earthImg,0,0,W,H); else { ctx.fillStyle='#0a1326'; ctx.fillRect(0,0,W,H); }
+  const sub = hazardData ? hazardData.subsolar : null;
+  if(sub) drawNight(ctx,W,H,sub);
+  // dayside HF-radio-blackout layer (X-ray driven)
+  if(showHF && hazardData){
+    const tex=buildHazardTexture(hazardData.hf_blackout.grid);
+    ctx.save(); ctx.imageSmoothingEnabled=true; ctx.globalCompositeOperation='screen';
+    ctx.globalAlpha=0.85; ctx.drawImage(tex,0,0,W,H); ctx.restore();
+  }
+  // high-latitude auroral / geomagnetic layer (Earth-field driven) — separate mechanism.
+  // 'now' = live OVATION oval; 'forecast' = the storm model's predicted oval.
+  const aGrid = showAurora ? activeAuroraGrid() : null;
+  if(aGrid){
+    const atex=buildAuroraTexture(aGrid);
+    ctx.save(); ctx.imageSmoothingEnabled=true; ctx.globalCompositeOperation='screen';
+    ctx.globalAlpha=0.8; ctx.drawImage(atex,0,0,W,H); ctx.restore();
+  }
+  drawGraticule(ctx,W,H,earthFailed);
+  // subsolar marker (dayside reference, shown with the HF layer)
+  if(sub && showHF){
+    const sx=projX(sub.lon,W), sy=projY(sub.lat,H);
+    const grd=ctx.createRadialGradient(sx,sy,0,sx,sy,16);
+    grd.addColorStop(0,'rgba(255,227,154,0.95)'); grd.addColorStop(1,'rgba(255,138,61,0)');
+    ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(sx,sy,16,0,7); ctx.fill();
+    ctx.fillStyle='#ffe39a'; ctx.beginPath(); ctx.arc(sx,sy,3.5,0,7); ctx.fill();
+  }
+  if(showHF && hazardData) drawDanger(ctx,W,H,hazardData.hf_blackout.grid);
+  if(aGrid) drawAuroraDanger(ctx,W,H,aGrid);
+}
+/* SHARED with STEP 3: subsolar -> equirectangular night-shading texture canvas */
+function buildNightTexture(sub){
+  const rw=160, rh=80, off=document.createElement('canvas'); off.width=rw; off.height=rh;
+  const o=off.getContext('2d'), im=o.createImageData(rw,rh);
+  for(let y=0;y<rh;y++) for(let x=0;x<rw;x++){
+    const lon=x/rw*360-180, lat=90-y/rh*180;
+    const cz=Math.sin(lat*D2R)*Math.sin(sub.lat*D2R)+Math.cos(lat*D2R)*Math.cos(sub.lat*D2R)*Math.cos((lon-sub.lon)*D2R);
+    const k=(y*rw+x)*4, a = cz<0?200 : cz<0.1?200*(1-cz/0.1):0;
+    im.data[k]=4; im.data[k+1]=6; im.data[k+2]=16; im.data[k+3]=a;
+  }
+  o.putImageData(im,0,0); return off;
+}
+function drawNight(ctx,W,H,sub){
+  ctx.save(); ctx.imageSmoothingEnabled=true; ctx.drawImage(buildNightTexture(sub),0,0,W,H); ctx.restore();
+}
+function drawGraticule(ctx,W,H,strong){
+  ctx.save(); ctx.lineWidth=1;
+  ctx.strokeStyle=strong?'rgba(120,140,200,0.25)':'rgba(180,200,255,0.10)'; ctx.beginPath();
+  for(let lon=-150;lon<=150;lon+=30){ const x=projX(lon,W); ctx.moveTo(x,0); ctx.lineTo(x,H); }
+  for(let lat=-60;lat<=60;lat+=30){ const y=projY(lat,H); ctx.moveTo(0,y); ctx.lineTo(W,y); }
+  ctx.stroke();
+  ctx.strokeStyle='rgba(180,200,255,0.18)'; ctx.beginPath(); ctx.moveTo(0,projY(0,H)); ctx.lineTo(W,projY(0,H)); ctx.stroke();
+  ctx.restore();
+}
+function nearestHaf(grid,lat,lon){
+  let bi=0,bd=1e9; for(let i=0;i<grid.lats.length;i++){const d=Math.abs(grid.lats[i]-lat); if(d<bd){bd=d;bi=i;}}
+  let bj=0; bd=1e9; for(let j=0;j<grid.lons.length;j++){const d=Math.abs(grid.lons[j]-lon); if(d<bd){bd=d;bj=j;}}
+  return grid.values[bi][bj];
+}
+function drawDanger(ctx,W,H,grid){
+  const thr=hazardData.thresholds_mhz;
+  const colorFor=v=> v>=thr.severe?'#ff4d5e': v>=thr.warning?'#ff8a3d':'#f5c542';
+  ctx.save(); ctx.font='600 11px Inter, sans-serif'; ctx.textBaseline='middle';
+  MAJOR_CITIES.forEach(c=>{
+    const v=nearestHaf(grid,c.lat,c.lon); if(v<thr.watch) return;
+    const x=projX(c.lon,W), y=projY(c.lat,H), col=colorFor(v);
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x,y,3.2,0,7); ctx.fill();
+    const tw=ctx.measureText(c.n).width;
+    ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(x+6,y-7,tw+6,14);
+    ctx.fillStyle='#eaf0ff'; ctx.fillText(c.n,x+9,y);
+  });
+  ctx.restore();
+}
+
+/* High-latitude reference points flagged when inside the auroral oval (power-grid
+   GIC / GNSS / polar aviation regions). Northern + southern auroral zones. */
+const HIGH_LAT_PLACES = [
+  {n:'Fairbanks',lat:64.8,lon:-147.7},{n:'Yellowknife',lat:62.5,lon:-114.4},
+  {n:'Tromsø',lat:69.6,lon:18.9},{n:'Murmansk',lat:69.0,lon:33.1},
+  {n:'Reykjavík',lat:64.1,lon:-21.9},{n:'Anchorage',lat:61.2,lon:-149.9},
+  {n:'Norilsk',lat:69.3,lon:88.2},{n:'Iqaluit',lat:63.7,lon:-68.5},
+  {n:'Hobart',lat:-42.9,lon:147.3},{n:'Ushuaia',lat:-54.8,lon:-68.3},
+  {n:'Dunedin',lat:-45.9,lon:170.5},
+];
+function drawAuroraDanger(ctx,W,H,grid){
+  const thr=(geomagData&&geomagData.thresholds_pct)||{watch:10,warning:35,severe:70};
+  const colorFor=v=> v>=thr.severe?'#b6ff5a': v>=thr.warning?'#6affc0':'#54e0a0';
+  ctx.save(); ctx.font='600 11px Inter, sans-serif'; ctx.textBaseline='middle';
+  HIGH_LAT_PLACES.forEach(c=>{
+    const v=nearestHaf(grid,c.lat,c.lon); if(v<thr.watch) return;
+    const x=projX(c.lon,W), y=projY(c.lat,H), col=colorFor(v);
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x,y,3.2,0,7); ctx.fill();
+    const lbl=c.n+'  '+Math.round(v)+'%', tw=ctx.measureText(lbl).width;
+    ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(x+6,y-7,tw+6,14);
+    ctx.fillStyle='#eaf0ff'; ctx.fillText(lbl,x+9,y);
+  });
+  ctx.restore();
+}
+
+/* ---------- 3D globe (globe.gl) — reuses buildHazardTexture + buildNightTexture ---------- */
+let globe=null, globePovSet=false;
+function buildCompositeGlobeTexture(){
+  // Same Earth + night + hazard layers as the 2D map, flattened to one
+  // equirectangular sphere texture. Only the render target differs.
+  const make=(withEarth)=>{
+    const c=document.createElement('canvas'); c.width=2048; c.height=1024;
+    const x=c.getContext('2d');
+    if(withEarth && earthReady) x.drawImage(earthImg,0,0,c.width,c.height);
+    else { x.fillStyle='#0a1326'; x.fillRect(0,0,c.width,c.height); }
+    if(hazardData) x.drawImage(buildNightTexture(hazardData.subsolar),0,0,c.width,c.height);
+    if(showHF && hazardData){            // dayside HF blackout
+      x.save(); x.imageSmoothingEnabled=true; x.globalCompositeOperation='screen'; x.globalAlpha=0.9;
+      x.drawImage(buildHazardTexture(hazardData.hf_blackout.grid),0,0,c.width,c.height); x.restore();
+    }
+    const aGrid = showAurora ? activeAuroraGrid() : null;
+    if(aGrid){                           // high-latitude auroral oval (now or forecast)
+      x.save(); x.imageSmoothingEnabled=true; x.globalCompositeOperation='screen'; x.globalAlpha=0.85;
+      x.drawImage(buildAuroraTexture(aGrid),0,0,c.width,c.height); x.restore();
+    }
+    return c.toDataURL('image/png');
+  };
+  try { return make(true); } catch(e){ return make(false); }   // cross-origin guard
+}
+function sizeGlobe(){
+  if(!globe) return;
+  const el=document.getElementById('hazard-globe');
+  const w=el.clientWidth||600; globe.width(w).height(Math.min(w,460));
+}
+function initGlobe(){
+  if(globe) return true;
+  if(typeof Globe==='undefined') return false;        // CDN failed -> stay 2D
+  globe=Globe({rendererConfig:{antialias:true,alpha:true}})(document.getElementById('hazard-globe'))
+    .backgroundColor('rgba(0,0,0,0)')
+    .showAtmosphere(true).atmosphereColor('#5b8cff').atmosphereAltitude(0.2)
+    .showGraticules(true)
+    .globeImageUrl(buildCompositeGlobeTexture())
+    .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png');
+  // crisper rendering + warmer key light from "the Sun" for relief on the bump map
+  try{ globe.renderer().setPixelRatio(Math.min(devicePixelRatio||1,2)); }catch(e){}
+  try{
+    const T=window.THREE, scene=globe.scene();
+    if(T && scene){
+      const sun=new T.DirectionalLight(0xfff2d8,0.85); sun.position.set(2,1.4,1); scene.add(sun);
+      scene.add(new T.AmbientLight(0x9fb4ff,0.7));
+    }
+  }catch(e){}
+  sizeGlobe(); return true;
+}
+function updateGlobe(){
+  if(!globe || (!hazardData && !geomagData)) return;
+  globe.globeImageUrl(buildCompositeGlobeTexture());
+  // subsolar ring — dayside reference, shown with the HF layer
+  if(showHF && hazardData){
+    const sub=hazardData.subsolar;
+    globe.ringsData([{lat:sub.lat,lng:sub.lon}])
+      .ringColor(()=> t=>`rgba(255,200,120,${Math.sqrt(1-t)})`)
+      .ringMaxRadius(7).ringPropagationSpeed(2.5).ringRepeatPeriod(1400);
+  } else { globe.ringsData([]); }
+  // combined danger labels: HF cities (orange/red) + high-lat aurora places (green)
+  const labels=[];
+  if(showHF && hazardData){
+    const thr=hazardData.thresholds_mhz, grid=hazardData.hf_blackout.grid;
+    MAJOR_CITIES.forEach(c=>{ const v=nearestHaf(grid,c.lat,c.lon);
+      if(v>=thr.watch) labels.push({lat:c.lat,lon:c.lon,n:c.n,
+        color:v>=thr.severe?'#ff4d5e':v>=thr.warning?'#ff8a3d':'#f5c542'}); });
+  }
+  const aGrid = showAurora ? activeAuroraGrid() : null;
+  if(aGrid){
+    const thr=(geomagData&&geomagData.thresholds_pct)||{watch:10,warning:35,severe:70};
+    HIGH_LAT_PLACES.forEach(c=>{ const v=nearestHaf(aGrid,c.lat,c.lon);
+      if(v>=thr.watch) labels.push({lat:c.lat,lon:c.lon,n:c.n,
+        color:v>=thr.severe?'#b6ff5a':v>=thr.warning?'#6affc0':'#54e0a0'}); });
+  }
+  globe.labelsData(labels).labelLat('lat').labelLng('lon').labelText('n')
+    .labelSize(0.9).labelDotRadius(0.45).labelResolution(2).labelColor('color');
+  if(!globePovSet && hazardData){ globe.pointOfView({lat:hazardData.subsolar.lat,lng:hazardData.subsolar.lon,altitude:2.3},0); globePovSet=true; }
+}
+function setMapMode(mode){
+  mapMode=mode; const is3d=mode==='3d';
+  document.getElementById('hazard-map').hidden=is3d;
+  document.getElementById('hazard-globe').hidden=!is3d;
+  document.getElementById('mt-2d').classList.toggle('active',!is3d);
+  document.getElementById('mt-3d').classList.toggle('active',is3d);
+  document.getElementById('mt-2d').setAttribute('aria-pressed',String(!is3d));
+  document.getElementById('mt-3d').setAttribute('aria-pressed',String(is3d));
+  const satCtl=document.getElementById('sat-controls');
+  if(is3d){
+    if(!initGlobe()){                                  // library unavailable
+      const b=document.getElementById('mt-3d');
+      b.disabled=true; b.title='3D globe unavailable (library failed to load)';
+      setMapMode('2d'); return;
+    }
+    sizeGlobe(); updateGlobe();
+    if(satCtl) satCtl.hidden=false;                    // satellites live on the globe
+    if(satEnabled){
+      if(satMeta.length) renderSats();
+      else if(!satLoading) loadSatellites(satScope);
+    }
+  } else {
+    drawHazardMap();
+    if(satCtl) satCtl.hidden=true;
+    stopSatTimer(); hideSatTip();
+    const pop=document.getElementById('sat-popup'); if(pop) pop.hidden=true;
+  }
+}
+document.getElementById('mt-2d').addEventListener('click', ()=>setMapMode('2d'));
+document.getElementById('mt-3d').addEventListener('click', ()=>setMapMode('3d'));
+
+/* hazard-layer toggles (HF blackout vs aurora) — independent on both views */
+document.getElementById('lyr-hf').addEventListener('change',e=>{ showHF=e.target.checked; drawHazardMap(); if(mapMode==='3d') updateGlobe(); });
+document.getElementById('lyr-aurora').addEventListener('change',e=>{ showAurora=e.target.checked; drawHazardMap(); if(mapMode==='3d') updateGlobe(); });
+
+/* now/forecast toggle for the high-latitude (aurora) layer — STEP 6 */
+function setGeomagMode(mode){
+  geomagMode=mode; const fc=mode==='forecast';
+  document.getElementById('gm-now').classList.toggle('active',!fc);
+  document.getElementById('gm-fcst').classList.toggle('active',fc);
+  document.getElementById('gm-now').setAttribute('aria-pressed',String(!fc));
+  document.getElementById('gm-fcst').setAttribute('aria-pressed',String(fc));
+  if(fc && !stormData) loadStorm();
+  updateGeomagStatus(); drawHazardMap(); if(mapMode==='3d') updateGlobe();
+}
+document.getElementById('gm-now').addEventListener('click', ()=>setGeomagMode('now'));
+document.getElementById('gm-fcst').addEventListener('click', ()=>setGeomagMode('forecast'));
+
+/* ---------- Satellites-at-risk layer (STEP EXTRA) — SGP4 via satellite.js ----------
+   A flare-RISK INDICATOR, not a validated per-satellite prediction. Positions are
+   propagated client-side from CelesTrak TLEs; risk = backend tier (altitude band ×
+   current/predicted flare), bumped one level when a sat is on the sunlit side. */
+const SAT_RISK_COLOR={low:'#2fbf71',elevated:'#f5c542',high:'#ff8a3d',severe:'#ff4d5e'};
+const SAT_ORDER=['low','elevated','high','severe'];
+const EARTH_R_KM=6371;
+let satData=null,satMeta=[],satEnabled=true,satScope='default',satBandFilter='all',
+    satTimer=null,satLoading=false,satPovSet=false,satTip=null,satGeom=null,satMats=null;
+
+function escapeHtml(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function satCosZenith(lat,lon,slat,slon){const d=D2R;return Math.sin(lat*d)*Math.sin(slat*d)+Math.cos(lat*d)*Math.cos(slat*d)*Math.cos((lon-slon)*d);}
+function flareActive(){const c=satData&&satData.flare_context;return !!c&&((c.r_scale||0)>0||(c.predicted_pM_24h||0)>=0.5);}
+function visibleSats(){if(!satEnabled)return [];return satMeta.filter(s=>s.lat!=null&&(satBandFilter==='all'||s.band===satBandFilter));}
+
+function ensureSatAssets(){
+  if(satGeom||!window.THREE) return; const T=window.THREE;
+  satGeom=new T.OctahedronGeometry(1.3,0);
+  satMats={}; for(const t of SAT_ORDER) satMats[t]=new T.MeshBasicMaterial({color:SAT_RISK_COLOR[t]});
+}
+
+async function loadSatellites(scope){
+  if(typeof satellite==='undefined'){ updateSatCount('SGP4 library unavailable'); return; }
+  satScope=scope||satScope; satLoading=true; updateSatCount('Loading satellites…');
+  try{
+    const r=await fetch(API_BASE+'/api/satellites?scope='+satScope,{cache:'no-store'});
+    if(!r.ok) throw 0;
+    satData=await r.json(); satMeta=[];
+    (satData.satellites||[]).forEach(s=>{
+      let rec; try{ rec=satellite.twoline2satrec(s.line1,s.line2); }catch(e){ return; }
+      if(!rec||rec.error) return;
+      satMeta.push({name:s.name,norad:s.norad,alt_km:s.alt_km,band:s.band,
+        baseRisk:s.risk,reason:s.reason,satrec:rec,lat:null,lng:null,altFrac:0,tier:s.risk,sunlit:null});
+    });
+    satLoading=false;
+    if(mapMode==='3d'&&satEnabled) renderSats(); else updateSatCount();
+  }catch(e){ satLoading=false; updateSatCount('Satellites unavailable'); }
+}
+
+function propagateSats(){
+  const now=new Date(), gmst=satellite.gstime(now);
+  const sub=hazardData&&hazardData.subsolar, active=flareActive();
+  for(const s of satMeta){
+    let pv; try{ pv=satellite.propagate(s.satrec,now); }catch(e){ pv=null; }
+    if(!pv||!pv.position){ s.lat=null; continue; }
+    const gd=satellite.eciToGeodetic(pv.position,gmst);
+    s.lat=satellite.degreesLat(gd.latitude); s.lng=satellite.degreesLong(gd.longitude);
+    s.altFrac=Math.max(gd.height||0,80)/EARTH_R_KM;
+    s.sunlit = sub ? satCosZenith(s.lat,s.lng,sub.lat,sub.lon)>0 : null;
+    let idx=SAT_ORDER.indexOf(s.baseRisk); if(idx<0) idx=0;
+    if(active&&s.sunlit) idx=Math.min(idx+1,3);   // direct-exposure bump on the dayside
+    s.tier=SAT_ORDER[idx];
+  }
+}
+
+function renderSats(){
+  if(!globe||!window.THREE) return;
+  ensureSatAssets(); propagateSats();
+  globe.objectsData(visibleSats())
+    .objectLat('lat').objectLng('lng').objectAltitude('altFrac').objectFacesSurface(false)
+    .objectThreeObject(d=>{ const m=new window.THREE.Mesh(satGeom,satMats[d.tier]||satMats.low); d.__obj=m; return m; })
+    .onObjectClick(d=>showSatPopup(d))
+    .onObjectHover(d=> d?showSatTip(d):hideSatTip());
+  if(globe.onGlobeClick) globe.onGlobeClick(()=>{ const p=document.getElementById('sat-popup'); if(p) p.hidden=true; });
+  if(satEnabled&&satMeta.length&&!satPovSet){ try{ globe.pointOfView({altitude:3.2},800); }catch(e){} satPovSet=true; }
+  updateSatCount(); startSatTimer();
+}
+
+function startSatTimer(){
+  stopSatTimer();
+  if(!(mapMode==='3d'&&satEnabled&&satMeta.length)) return;
+  satTimer=setInterval(()=>{
+    if(mapMode!=='3d'||!satEnabled){ stopSatTimer(); return; }
+    propagateSats();
+    for(const s of satMeta){ if(s.__obj&&satMats[s.tier]&&s.__obj.material!==satMats[s.tier]) s.__obj.material=satMats[s.tier]; }
+    globe.objectsData(visibleSats()); updateSatCount();
+  },1000);
+}
+function stopSatTimer(){ if(satTimer){ clearInterval(satTimer); satTimer=null; } }
+
+function updateSatCount(text){
+  const el=document.getElementById('sat-count'); if(!el) return;
+  if(text){ el.textContent=text; return; }
+  const counts={low:0,elevated:0,high:0,severe:0};
+  satMeta.forEach(s=>{ counts[s.tier]=(counts[s.tier]||0)+1; });
+  const vis=visibleSats().length, tot=satMeta.length;
+  const dot=(t,n)=>'<span class="sat-cdot" style="background:'+SAT_RISK_COLOR[t]+'"></span>'+n;
+  el.innerHTML = tot
+    ? '<span class="sat-shown">'+vis+(vis!==tot?(' / '+tot):'')+' shown</span>'+
+      dot('severe',counts.severe)+dot('high',counts.high)+dot('elevated',counts.elevated)+dot('low',counts.low)
+    : '—';
+}
+
+function showSatTip(d){
+  if(!satTip){ satTip=document.createElement('div'); satTip.className='sat-tip'; satTip.hidden=true;
+    const w=document.querySelector('.map-wrap'); if(w) w.appendChild(satTip); }
+  satTip.innerHTML='<b>'+escapeHtml(d.name||'')+'</b> <span style="color:'+(SAT_RISK_COLOR[d.tier]||'#fff')+'">'+
+    String(d.tier||'').toUpperCase()+'</span>'+(d.alt_km!=null?' · '+Math.round(d.alt_km).toLocaleString()+' km':'');
+  satTip.hidden=false;
+  try{ const sc=globe.getScreenCoords(d.lat,d.lng,d.altFrac), wrap=satTip.parentElement.getBoundingClientRect();
+    let x=sc.x+12,y=sc.y-12; x=Math.max(4,Math.min(x,wrap.width-satTip.offsetWidth-4));
+    y=Math.max(4,Math.min(y,wrap.height-satTip.offsetHeight-4)); satTip.style.left=x+'px'; satTip.style.top=y+'px'; }catch(e){}
+}
+function hideSatTip(){ if(satTip) satTip.hidden=true; }
+
+function showSatPopup(d){
+  const pop=document.getElementById('sat-popup'); if(!pop) return;
+  const active=flareActive();
+  const sunTxt = d.sunlit==null?'—':(d.sunlit?'Sunlit (dayside)':'Shadow (nightside)');
+  let why=d.reason||'';
+  if(active&&d.sunlit) why+=(why?' · ':'')+'on the sunlit side — direct exposure to the flare';
+  pop.innerHTML='<button class="sat-x" aria-label="Close">&times;</button>'+
+    '<div class="sat-name">'+escapeHtml(d.name||'Unknown')+'</div>'+
+    '<div class="sat-tier" style="color:'+(SAT_RISK_COLOR[d.tier]||'#fff')+'">'+String(d.tier||'').toUpperCase()+' RISK</div>'+
+    '<dl class="sat-dl">'+
+      '<div><dt>NORAD</dt><dd>'+(d.norad??'—')+'</dd></div>'+
+      '<div><dt>Altitude</dt><dd>'+(d.alt_km!=null?Math.round(d.alt_km).toLocaleString()+' km':'—')+'</dd></div>'+
+      '<div><dt>Band</dt><dd>'+escapeHtml(d.band||'—')+'</dd></div>'+
+      '<div><dt>Illumination</dt><dd>'+sunTxt+'</dd></div>'+
+    '</dl>'+
+    '<div class="sat-why">'+escapeHtml(why||'Nominal radiation environment.')+'</div>';
+  pop.hidden=false;
+  pop.querySelector('.sat-x').onclick=()=>{ pop.hidden=true; };
+  try{ const sc=globe.getScreenCoords(d.lat,d.lng,d.altFrac), wrap=pop.parentElement.getBoundingClientRect();
+    let x=sc.x+14,y=sc.y+14; x=Math.max(6,Math.min(x,wrap.width-pop.offsetWidth-6));
+    y=Math.max(6,Math.min(y,wrap.height-pop.offsetHeight-6)); pop.style.left=x+'px'; pop.style.top=y+'px';
+  }catch(e){ pop.style.left='12px'; pop.style.top='12px'; }
+}
+
+document.getElementById('sat-on').addEventListener('change',e=>{
+  satEnabled=e.target.checked;
+  if(mapMode==='3d'){
+    if(satEnabled){ if(satMeta.length) renderSats(); else if(!satLoading) loadSatellites(satScope); }
+    else { stopSatTimer(); if(globe) globe.objectsData([]); hideSatTip();
+      const p=document.getElementById('sat-popup'); if(p) p.hidden=true; updateSatCount(); }
+  }
+});
+document.getElementById('sat-loadall').addEventListener('click',e=>{
+  satScope = satScope==='all' ? 'default' : 'all';
+  e.target.textContent = satScope==='all' ? 'Show fewer' : 'Load all';
+  loadSatellites(satScope);
+});
+document.querySelectorAll('#sat-bands .sat-band').forEach(b=>b.addEventListener('click',()=>{
+  satBandFilter=b.dataset.band;
+  document.querySelectorAll('#sat-bands .sat-band').forEach(x=>x.classList.toggle('active',x===b));
+  if(mapMode==='3d'&&satEnabled&&globe){ globe.objectsData(visibleSats()); updateSatCount(); }
+}));
+window.addEventListener('helios-globe-ready',()=>{
+  if(mapMode==='3d'&&satEnabled){
+    if(!globe) setMapMode('3d');
+    else if(satMeta.length) renderSats();
+    else if(!satLoading) loadSatellites(satScope);
+  }
+});
+
+document.getElementById('refresh').addEventListener('click', loadAll);
+let _rz; addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ loadFlux(); drawHazardMap(); if(expData) drawSkillChart(document.getElementById('exp-chart'), expData); if(mapMode==='3d') sizeGlobe(); },150); });
+loadAll();
+setInterval(loadAll, 5*60*1000);   // auto-refresh every 5 minutes
+</script>
+</body>
+</html>
