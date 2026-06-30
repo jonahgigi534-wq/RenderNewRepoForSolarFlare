@@ -96,6 +96,21 @@ def storm_endpoint():
     return JSONResponse(storm.storm_forecast(cfg))
 
 
+@app.get("/api/sharp_live")
+def sharp_live_endpoint(at: str = Query("", description="optional ISO-8601 UTC time for a historical demo; blank = now")):
+    """Live SHARP ML flare forecast: P(M-class+ in 24h) per active region from JSOC
+    magnetic-field data, using our own JSOC-trained model (saved preprocessing)."""
+    from datetime import datetime, timezone
+    from solarflare import sharp_live as sl
+    at_time = None
+    if at:
+        try:
+            at_time = datetime.fromisoformat(at).replace(tzinfo=timezone.utc)
+        except ValueError:
+            at_time = None
+    return JSONResponse(sl.predict_live(cfg, at_time=at_time))
+
+
 @app.get("/api/impact")
 def impact_endpoint():
     """Plain-language R/S/G space-weather impact statements (STEP 8)."""

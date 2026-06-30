@@ -235,6 +235,27 @@ def main() -> int:
     check("/api/notify/status carries an accuracy block", isinstance(ns2.get("accuracy"), dict),
           ns2.get("accuracy", {}).get("available"))
 
+    print("\n" + "=" * 64)
+    print("12) live SHARP model (JSOC-trained) artifact + endpoint contract")
+    print("=" * 64)
+    from solarflare import sharp_live as sl
+    m = sl.load_model(cfg)
+    if m:
+        check("live SHARP model loads", isinstance(m, dict))
+        check("  winner recorded", bool(m.get("winner")), m.get("winner"))
+        tss = m.get("metrics", {}).get("tss")
+        check("  test TSS in [0,1]", isinstance(tss, (int, float)) and 0 <= tss <= 1, tss)
+        check("  feature_names = 17x7 = 119", len(m.get("feature_names", [])) == 119,
+              len(m.get("feature_names", [])))
+        check("  keywords = 17", len(m.get("keywords", [])) == 17)
+    else:
+        print("  (live SHARP model not trained on disk — skipping; build via "
+              "solarflare.sharpdata + solarflare.sharptrain)")
+    import json as _json
+    se = server.sharp_live_endpoint(at="")               # now(): no current JSOC data here -> available False
+    check("/api/sharp_live returns 200", getattr(se, "status_code", 200) == 200)
+    check("sharp_live envelope has 'available'", "available" in _json.loads(se.body))
+
     print("\n" + ("ALL REGRESSION CHECKS PASSED." if not errors
                   else f"FAILED: {len(errors)} check(s) -> {errors}"))
     return 1 if errors else 0

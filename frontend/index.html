@@ -485,6 +485,16 @@
     </table>
   </div>
 
+  <!-- Live SHARP ML model (our own JSOC-trained per-region flare model) -->
+  <div class="section-title"><h2>Live SHARP model</h2><span class="sub">Per-region P(M+) from JSOC magnetic data · our own ML</span></div>
+  <div class="card" id="sharp-card">
+    <p class="map-caption" id="sharp-status">—</p>
+    <table class="tracks" id="sharp-table" hidden aria-label="Live per-region SHARP flare probabilities">
+      <thead><tr><th>Active region</th><th style="text-align:right">P(M+ 24h)</th><th style="text-align:right">Flag</th></tr></thead>
+      <tbody id="sharp-body"></tbody>
+    </table>
+  </div>
+
   <!-- Active regions -->
   <div class="section-title"><h2>Active regions</h2><span class="sub" id="ar-date">NOAA SWPC</span></div>
   <div class="card region-wrap">
@@ -591,6 +601,7 @@ async function loadAll(){
     loadImpact();         // STEP 8 plain-language impacts; non-fatal
     loadAlerts();         // STEP 8 threshold alerts; non-fatal
     loadNotify();         // email-notifier status line; non-fatal
+    loadSharpLive();      // live SHARP per-region ML forecast (our JSOC-trained model); non-fatal
     if(mapMode==='3d' && satEnabled) loadSatellites(satScope);  // refresh sat risk vs current flare
   } catch(e){
     document.getElementById('errmsg').textContent =
@@ -1037,6 +1048,35 @@ async function loadNotify(){
         accLine;
       el2.hidden=false;
     }
+  }catch(e){ /* optional */ }
+}
+
+async function loadSharpLive(){
+  const card=document.getElementById('sharp-card'); if(!card) return;
+  const statusEl=document.getElementById('sharp-status');
+  const tbl=document.getElementById('sharp-table'), body=document.getElementById('sharp-body');
+  try{
+    const r=await fetch(API_BASE+'/api/sharp_live',{cache:'no-store'});
+    if(!r.ok) throw 0; const j=await r.json();
+    const tss=(j.test_tss!=null)?(' · test TSS '+Number(j.test_tss).toFixed(2)):'';
+    if(!j.available){
+      tbl.hidden=true;
+      const trained=j.model?('Model trained ('+escapeHtml(j.model)+tss+'). '):'';
+      statusEl.innerHTML=trained+escapeHtml(j.reason||'unavailable')+'.';
+      return;
+    }
+    const full=Math.round((j.p_M_or_greater_24h_fulldisk||0)*100);
+    statusEl.innerHTML='Model <b>'+escapeHtml(j.model||'')+'</b>'+tss+
+      ' · full-disk <b>'+full+'%</b> chance of an M-class+ flare in 24h · '+
+      (j.n_regions||0)+' active regions <span class="muted">· as of '+
+      escapeHtml(String(j.as_of||'').slice(0,16).replace('T',' '))+' UTC</span>';
+    const rows=(j.regions||[]).slice(0,8).map(reg=>{
+      const p=Math.round((reg.p_M_or_greater_24h||0)*100);
+      const flag=reg.will_flare?'<span class="reg-tag active">⚠ watch</span>':'<span class="reg-tag quiet">—</span>';
+      return '<tr><td>AR '+escapeHtml(reg.noaa_ar||'—')+'</td><td class="num">'+p+'%</td><td class="num">'+flag+'</td></tr>';
+    }).join('');
+    body.innerHTML=rows||'<tr><td colspan="3" class="muted">No active regions.</td></tr>';
+    tbl.hidden=false;
   }catch(e){ /* optional */ }
 }
 

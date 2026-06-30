@@ -326,6 +326,34 @@ notify:
   db_path: ""                  # default <cache_dir>/notify.db
   outbox_log: ""               # default <cache_dir>/notify_outbox.log
 
+# ----------------------------------------------------------------------
+# Live SHARP flare model — OUR OWN end-to-end model (not the SWAN-SF benchmark).
+# Trains on RAW physical SHARP keyword time series from JSOC (hmi.sharp_cea_720s;
+# the 17 keywords that series actually exposes) labeled by NOAA SWPC M-class+
+# flares (HEK). A StandardScaler is persisted WITH the model, so live JSOC data
+# goes through the identical transform — no external normalization needed.
+# Built/trained offline; see solarflare/sharpdata.py + solarflare/sharptrain.py.
+# ----------------------------------------------------------------------
+sharp_live:
+  series: hmi.sharp_cea_720s
+  keywords: [R_VALUE, TOTUSJH, TOTPOT, TOTUSJZ, ABSNJZH, SAVNCPP, USFLUX,
+             MEANPOT, MEANSHR, SHRGT45, MEANGAM, MEANGBT, MEANGBZ, MEANGBH,
+             MEANJZH, MEANJZD, MEANALP]
+  summary_stats: [last, mean, std, min, max, slope, delta]
+  observation_window_h: 12        # input window length
+  prediction_window_h: 24         # forecast horizon (M+ within next 24h)
+  stride_h: 6                     # step between windows of the same region
+  chunk_days: 5                   # JSOC query chunk (server caps result size)
+  train_start: "2012-01-01"       # solar-max span for training data
+  train_end: "2015-01-01"
+  candidates: [logistic, random_forest, extra_trees, hist_gradient_boosting]
+  selection_metric: tss
+  split: {train: 0.65, val: 0.15, test: 0.20, gap_days: 5}   # leakage-free chronological
+  high_precision_min_recall: 0.25
+  random_state: 42
+  model_path: models/flare_sharp_live_model.joblib
+  cache_minutes: 15               # reuse a live result this long (avoid re-hitting JSOC)
+
 api:
   host: 127.0.0.1
   port: 8000

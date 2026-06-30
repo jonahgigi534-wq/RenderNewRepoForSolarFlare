@@ -3,6 +3,8 @@ __pycache__/
 .cache/
 data/swansf/*.pkl
 data/swansf/swansf_download
+data/sharp_live/
+*.npz
 models/*.joblib
 models/*.pkl
 models/*.meta.json
