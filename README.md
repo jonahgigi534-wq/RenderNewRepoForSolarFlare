@@ -155,6 +155,7 @@ supply the **original** SWAN-SF multi-class labels and set
 | `GET /api/geomag` | high-latitude auroral oval (NOAA OVATION) + Kp/G-scale + aurora visibility |
 | `GET /api/satellites` | satellites at risk by altitude band (CelesTrak TLE; `?scope=default\|all`) |
 | `GET /api/storm` | geomagnetic-storm forecast — P(Kp≥5, 24 h) from the L1 solar wind (OMNI-trained ML) |
+| `GET /api/sharp_live` | live SHARP ML flare forecast — P(M+ in 24 h) per active region from JSOC magnetic data (our own JSOC-trained model; `?at=ISO` for a historical demo) |
 | `GET /api/impact` | plain-language R/S/G space-weather impact statements |
 | `GET /api/alerts` | active threshold alerts (log/webhook) |
 | `GET /api/notify/status` | email-notifier state (dry-run/live, thresholds, pending + recent predictions) |
