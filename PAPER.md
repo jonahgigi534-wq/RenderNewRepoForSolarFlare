@@ -458,16 +458,23 @@ All figures are in `figures/` and reproducible from the experiment scripts.
 
 ---
 
-## References *(to be finalized)*
+## References
 
-- Angryk, R. et al. (2020). *Multivariate time series dataset for space weather
-  data analytics* (SWAN-SF). Scientific Data.
-- Bobra, M. G. et al. (2014). *The HMI Vector Magnetic Field Pipeline: SHARPs.*
-  Solar Physics.
-- Bobra, M. G. & Couvidat, S. (2015). *Solar Flare Prediction Using SDO/HMI
-  Vector Magnetic Field Data with a Machine-Learning Algorithm.* ApJ.
-- Bloomfield, D. S. et al. (2012). *Toward Reliable Benchmarking of Solar Flare
-  Forecasting Methods.* ApJ Letters.
-- Leka, K. D. et al. (2019). *A Comparison of Flare Forecasting Methods.* ApJS.
-
-*(Citations to be verified and formatted to the target style.)*
+1. Angryk, R. A., Martens, P. C., Aydin, B., et al. (2020). Multivariate time
+   series dataset for space weather data analytics. *Scientific Data*, **7**, 227.
+   doi:10.1038/s41597-020-0548-x
+2. Bobra, M. G., Sun, X., Hoeksema, J. T., et al. (2014). The Helioseismic and
+   Magnetic Imager (HMI) Vector Magnetic Field Pipeline: SHARPs — Space-Weather
+   HMI Active Region Patches. *Solar Physics*, **289**, 3549–3578.
+   doi:10.1007/s11207-014-0529-3
+3. Bobra, M. G., & Couvidat, S. (2015). Solar Flare Prediction Using SDO/HMI
+   Vector Magnetic Field Data with a Machine-Learning Algorithm. *The
+   Astrophysical Journal*, **798**(2), 135. doi:10.1088/0004-637X/798/2/135
+4. Bloomfield, D. S., Higgins, P. A., McAteer, R. T. J., & Gallagher, P. T.
+   (2012). Toward Reliable Benchmarking of Solar Flare Forecasting Methods. *The
+   Astrophysical Journal Letters*, **747**(2), L41.
+   doi:10.1088/2041-8205/747/2/L41
+5. Leka, K. D., Park, S.-H., Kusano, K., et al. (2019). A Comparison of Flare
+   Forecasting Methods. II. Benchmarks, Metrics, and Performance Results for
+   Operational Solar Flare Forecasting Systems. *The Astrophysical Journal
+   Supplement Series*, **243**(2), 36. doi:10.3847/1538-4365/ab2e12
