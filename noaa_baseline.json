@@ -1,0 +1,79 @@
+{
+  "title": "Deployed model vs. NOAA SWPC official M-class forecast",
+  "protocol": "full-disk daily P(M+); NOAA = archived RSGA next-day Class-M probability; ours = deployed live-SHARP model, last window per region per day combined as 1-prod(1-p); truth = any M+ flare on the target day (HEK/SWPC). Same days, same truth.",
+  "caveat": "horizons are close but not identical: NOAA's probability covers calendar day D+1; our windows end during day D and cover the following 24 h. Brier is the primary metric (proper); climatology (constant base rate) has Brier-skill 0 and peak TSS 0.",
+  "years": {
+    "2013": {
+      "noaa_official": {
+        "n_days": 360,
+        "flare_days": 53,
+        "base_rate": 0.147,
+        "brier": 0.1341,
+        "brier_skill_vs_climatology": -0.068,
+        "peak_tss": 0.402
+      },
+      "helios_deployed": {
+        "n_days": 360,
+        "flare_days": 53,
+        "base_rate": 0.147,
+        "brier": 0.1142,
+        "brier_skill_vs_climatology": 0.09,
+        "peak_tss": 0.421
+      }
+    },
+    "2015": {
+      "noaa_official": {
+        "n_days": 361,
+        "flare_days": 63,
+        "base_rate": 0.175,
+        "brier": 0.132,
+        "brier_skill_vs_climatology": 0.084,
+        "peak_tss": 0.445
+      },
+      "helios_deployed": {
+        "n_days": 361,
+        "flare_days": 63,
+        "base_rate": 0.175,
+        "brier": 0.1264,
+        "brier_skill_vs_climatology": 0.123,
+        "peak_tss": 0.455
+      }
+    },
+    "2016": {
+      "noaa_official": {
+        "n_days": 360,
+        "flare_days": 10,
+        "base_rate": 0.028,
+        "brier": 0.0236,
+        "brier_skill_vs_climatology": 0.126,
+        "peak_tss": 0.703
+      },
+      "helios_deployed": {
+        "n_days": 360,
+        "flare_days": 10,
+        "base_rate": 0.028,
+        "brier": 0.0283,
+        "brier_skill_vs_climatology": -0.049,
+        "peak_tss": 0.654
+      }
+    },
+    "2017": {
+      "noaa_official": {
+        "n_days": 353,
+        "flare_days": 15,
+        "base_rate": 0.042,
+        "brier": 0.0281,
+        "brier_skill_vs_climatology": 0.31,
+        "peak_tss": 0.686
+      },
+      "helios_deployed": {
+        "n_days": 353,
+        "flare_days": 15,
+        "base_rate": 0.042,
+        "brier": 0.0347,
+        "brier_skill_vs_climatology": 0.147,
+        "peak_tss": 0.677
+      }
+    }
+  }
+}

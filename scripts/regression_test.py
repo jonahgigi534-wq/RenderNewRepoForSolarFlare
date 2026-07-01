@@ -256,6 +256,33 @@ def main() -> int:
     check("/api/sharp_live returns 200", getattr(se, "status_code", 200) == 200)
     check("sharp_live envelope has 'available'", "available" in _json.loads(se.body))
 
+    print("\n" + "=" * 64)
+    print("13) research artifacts: scorecard v2 + diagnosis + prospective + impact anchors")
+    print("=" * 64)
+    sc_resp = server.scorecard_endpoint()
+    if getattr(sc_resp, "status_code", 200) == 200:
+        scj = _json.loads(sc_resp.body)
+        check("scorecard has models", isinstance(scj.get("models"), list) and scj["models"],
+              len(scj.get("models", [])))
+        m0 = (scj.get("models") or [{}])[0]
+        check("  model rows carry bootstrap CIs", isinstance(m0.get("gap_ci"), list), m0.get("gap_ci"))
+        check("  model rows carry frozen-threshold scores", isinstance(m0.get("frozen"), dict),
+              (m0.get("frozen") or {}).get("gap"))
+        check("  findings carry gap CI", isinstance(scj.get("findings", {}).get("overstatement_gap_ci"), list),
+              scj.get("findings", {}).get("overstatement_gap_ci"))
+        check("  reliability block present", isinstance(scj.get("reliability"), dict))
+    else:
+        print("  (skill_scorecard.json not built — run: python -m solarflare.scorecard)")
+    dg = server.diagnosis_endpoint()
+    check("/api/diagnosis responds (200 or graceful 404)",
+          getattr(dg, "status_code", 200) in (200, 404))
+    check("notify status carries a prospective block", isinstance(ns2.get("prospective"), dict),
+          ns2.get("prospective", {}).get("available"))
+    check("impact carries historical cost anchors",
+          isinstance(ib.get("historical"), list) and len(ib.get("historical", [])) >= 3,
+          len(ib.get("historical", [])))
+    check("demo alert path exists (not fired here)", callable(getattr(almod, "demo_alert", None)))
+
     print("\n" + ("ALL REGRESSION CHECKS PASSED." if not errors
                   else f"FAILED: {len(errors)} check(s) -> {errors}"))
     return 1 if errors else 0

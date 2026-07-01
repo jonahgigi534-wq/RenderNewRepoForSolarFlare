@@ -471,9 +471,15 @@
   <div class="card" id="impact-card">
     <div id="impact-alerts" class="impact-alerts" hidden></div>
     <div id="impact-rows"></div>
+    <div id="impact-history" hidden style="margin-top:10px"></div>
     <p class="map-caption" id="aurora-view">—</p>
     <p class="map-caption" id="notify-line" hidden></p>
+    <p class="map-caption" id="notify-prospective" hidden></p>
     <p class="map-caption" id="notify-history" hidden></p>
+    <div style="margin-top:8px">
+      <button id="demo-alert-btn" onclick="fireDemoAlert()" style="background:#1b2942;border:1px solid #2c3d5e;color:var(--text);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px">Fire a demo alert</button>
+      <span id="demo-alert-result" class="muted" style="font-size:12px;margin-left:8px"></span>
+    </div>
   </div>
 
   <!-- Forecast tracks transparency -->
@@ -486,14 +492,20 @@
   </div>
 
   <!-- Model Skill Scorecard (the research result: benchmark vs. operational skill) -->
-  <div class="section-title"><h2>Model skill scorecard</h2><span class="sub">Benchmark score vs. real operational skill — the honest number</span></div>
+  <div class="section-title"><h2>Model skill scorecard</h2><span class="sub">Benchmark score vs. real operational skill — with 95% confidence intervals</span></div>
   <div class="card" id="scorecard-card">
     <p class="map-caption" id="scorecard-note">—</p>
     <table class="tracks" id="scorecard-table" hidden aria-label="Benchmark vs operational skill">
-      <thead><tr><th>Model</th><th style="text-align:right">Benchmark TSS</th><th style="text-align:right">Real operational TSS</th><th style="text-align:right">Overstatement</th></tr></thead>
+      <thead><tr><th>Model</th><th style="text-align:right">Benchmark TSS</th><th style="text-align:right">Real operational TSS</th><th style="text-align:right">Overstatement (95% CI)</th></tr></thead>
       <tbody id="scorecard-body"></tbody>
     </table>
+    <p class="map-caption" id="scorecard-frozen" hidden></p>
+    <div id="scorecard-years" class="map-caption" hidden></div>
     <p class="map-caption" id="scorecard-finding">—</p>
+    <div id="scorecard-reliability" hidden style="margin-top:10px"></div>
+    <div id="scorecard-storm" hidden style="margin-top:10px"></div>
+    <div id="scorecard-noaa" hidden style="margin-top:10px"></div>
+    <p class="map-caption" id="scorecard-diagnosis" hidden></p>
   </div>
 
   <!-- Live SHARP ML model (our own JSOC-trained per-region flare model) -->
@@ -1022,6 +1034,15 @@ async function loadImpact(){
     });
     document.getElementById('impact-sub').textContent =
       j.all_quiet ? 'All quiet · NOAA R/S/G scales' : 'Active space weather · NOAA R/S/G scales';
+    // Why it matters — real events with documented costs (config-driven).
+    const hist=document.getElementById('impact-history');
+    if(hist&&Array.isArray(j.historical)&&j.historical.length){
+      hist.innerHTML='<b style="font-size:13px">Why it matters</b> <span class="muted" style="font-size:12px">— what these scales have already cost</span>'+
+        j.historical.map(e=>'<div class="impact-row" style="margin-top:6px"><span class="impact-code" style="color:var(--m-class)">'+
+          escapeHtml(e.code||e.scale)+'</span><div><b>'+escapeHtml(e.event)+'</b>'+
+          '<p class="impact-text">'+escapeHtml(e.detail)+'</p></div></div>').join('');
+      hist.hidden=false;
+    }
   }catch(e){ /* optional */ }
 }
 async function loadAlerts(){
@@ -1066,7 +1087,49 @@ async function loadNotify(){
         accLine;
       el2.hidden=false;
     }
+    // Prospective record — forecasts issued BEFORE their outcomes (the gold standard).
+    const pr=j.prospective||{}, el3=document.getElementById('notify-prospective');
+    if(el3){
+      if(pr.available){
+        el3.innerHTML=`<b>Prospective record</b> <span class="muted">(every forecast issued before its outcome)</span>: `+
+          `${pr.n_days} day${pr.n_days===1?'':'s'} · ${pr.events} flare day${pr.events===1?'':'s'} · Brier <b>${pr.brier}</b>`+
+          ` <span class="muted">(climatology ${pr.brier_climatology})</span>`+
+          (pr.tss_at_alert_threshold!=null?` · TSS <b>${pr.tss_at_alert_threshold}</b>`:' · TSS pending (needs both outcomes)');
+      } else {
+        el3.innerHTML=`<b>Prospective record</b>: <span class="muted">${escapeHtml(pr.note||'builds as the notifier runs')}</span>`;
+      }
+      el3.hidden=false;
+    }
   }catch(e){ /* optional */ }
+}
+
+function ciStr(ci){ return (ci&&ci.length===2)?(' <span class="muted" style="font-size:11px">['+Number(ci[0]).toFixed(2)+'…'+Number(ci[1]).toFixed(2)+']</span>'):''; }
+
+function reliabilitySVG(rel){
+  // Compact calibration diagram: predicted P (x) vs observed frequency (y),
+  // per model, log-sized dots by bin count. Pure SVG, dark-ops palette.
+  const W=280,H=190,P=34, models=Object.keys(rel||{});
+  if(!models.length) return '';
+  const colors=['#5ec8fa','#ffb454'];
+  const sx=p=>P+p*(W-P-10), sy=f=>H-24-f*(H-24-12);
+  let pts='';
+  models.forEach((m,mi)=>{
+    (rel[m].bins||[]).forEach(b=>{
+      const r=Math.max(2,Math.min(7,1.5+Math.log10(Math.max(1,b.n))*1.8));
+      pts+='<circle cx="'+sx(b.p_mean).toFixed(1)+'" cy="'+sy(b.obs_freq).toFixed(1)+'" r="'+r.toFixed(1)+
+           '" fill="'+colors[mi%2]+'" fill-opacity="0.75"><title>'+m+': predicted '+(b.p_mean*100).toFixed(0)+
+           '% → observed '+(b.obs_freq*100).toFixed(0)+'% (n='+b.n+')</title></circle>';
+    });
+  });
+  const legend=models.map((m,mi)=>'<circle cx="'+(P+8+mi*130)+'" cy="10" r="4" fill="'+colors[mi%2]+'"/>'+
+    '<text x="'+(P+16+mi*130)+'" y="13" fill="#8ea0bf" font-size="10">'+escapeHtml(m)+' (Brier '+(rel[m].brier??'—')+')</text>').join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="max-width:340px;width:100%" role="img" aria-label="Reliability diagram">'+
+    '<line x1="'+sx(0)+'" y1="'+sy(0)+'" x2="'+sx(1)+'" y2="'+sy(1)+'" stroke="#2c3d5e" stroke-dasharray="4 3"/>'+
+    '<line x1="'+P+'" y1="'+sy(0)+'" x2="'+(W-10)+'" y2="'+sy(0)+'" stroke="#24304a"/>'+
+    '<line x1="'+P+'" y1="'+sy(0)+'" x2="'+P+'" y2="12" stroke="#24304a"/>'+
+    '<text x="'+((P+W-10)/2)+'" y="'+(H-4)+'" fill="#8ea0bf" font-size="10" text-anchor="middle">predicted probability</text>'+
+    '<text x="10" y="'+((sy(0)+12)/2)+'" fill="#8ea0bf" font-size="10" text-anchor="middle" transform="rotate(-90 10 '+((sy(0)+12)/2)+')">observed frequency</text>'+
+    legend+pts+'</svg>';
 }
 
 async function loadScorecard(){
@@ -1075,20 +1138,102 @@ async function loadScorecard(){
     const r=await fetch(API_BASE+'/api/scorecard',{cache:'no-store'}); if(!r.ok) return;
     const j=await r.json(); const ts=j.test_sets||{};
     document.getElementById('scorecard-note').innerHTML='<span class="muted">'+escapeHtml(j.metric||'')+
-      '<br>benchmark test: '+escapeHtml(ts.benchmark||'')+' · operational test: '+escapeHtml(ts.operational||'')+'</span>';
+      '<br>benchmark test: '+escapeHtml(ts.benchmark||'')+'<br>operational test: '+escapeHtml(ts.operational||'')+'</span>';
     document.getElementById('scorecard-body').innerHTML=(j.models||[]).map(m=>
       '<tr><td>'+escapeHtml(m.name)+' <span class="muted">· '+escapeHtml(m.detail)+'</span></td>'+
-      '<td class="num">'+Number(m.benchmark_tss).toFixed(2)+'</td>'+
-      '<td class="num"><b>'+Number(m.operational_tss).toFixed(2)+'</b></td>'+
-      '<td class="num" style="color:var(--x-class)">▼ '+Math.abs(Number(m.gap)).toFixed(2)+'</td></tr>'
+      '<td class="num">'+Number(m.benchmark_tss).toFixed(2)+ciStr(m.benchmark_ci)+'</td>'+
+      '<td class="num"><b>'+Number(m.operational_tss).toFixed(2)+'</b>'+ciStr(m.operational_ci)+'</td>'+
+      '<td class="num" style="color:var(--x-class)">▼ '+Math.abs(Number(m.gap)).toFixed(2)+ciStr(m.gap_ci)+'</td></tr>'
     ).join('');
     document.getElementById('scorecard-table').hidden=false;
+    // Frozen-threshold view — the deployment number (threshold committed in advance).
+    const fz=document.getElementById('scorecard-frozen');
+    const fzRows=(j.models||[]).filter(m=>m.frozen).map(m=>
+      escapeHtml(m.name)+': '+Number(m.frozen.benchmark_tss).toFixed(2)+' → '+
+      Number(m.frozen.operational_tss).toFixed(2)+' (gap '+Number(m.frozen.gap).toFixed(2)+ciStr(m.frozen.gap_ci)+')');
+    if(fzRows.length){ fz.innerHTML='<b>Frozen threshold</b> <span class="muted">(committed in advance — the deployment scenario)</span>: '+fzRows.join(' · '); fz.hidden=false; }
+    // Per-year chips (benchmark-trained model): does the gap hold every year?
+    const bench=(j.models||[]).find(m=>m.name==='Benchmark-trained');
+    const yrsEl=document.getElementById('scorecard-years');
+    if(bench&&bench.by_year&&Object.keys(bench.by_year).length){
+      yrsEl.innerHTML='<b>Per operational year</b> <span class="muted">(benchmark-trained model, peak TSS)</span>: '+
+        Object.entries(bench.by_year).sort().map(([y,v])=>
+          '<span style="display:inline-block;background:#0a1326;border:1px solid #24304a;border-radius:6px;padding:2px 8px;margin:2px 3px">'+
+          y+': <b>'+Number(v.peak_tss).toFixed(2)+'</b>'+ciStr(v.peak_ci)+'</span>').join('');
+      yrsEl.hidden=false;
+    }
     const f=j.findings||{};
     document.getElementById('scorecard-finding').innerHTML='<b>Finding:</b> benchmark scores <b>'+
       (f.benchmarks_overstate?'overstate':'match')+'</b> real operational skill'+
-      (f.benchmarks_overstate?(' by ~'+Number(f.overstatement_gap).toFixed(2)+' TSS'):'')+
-      '; training on live data <b>'+(f.live_training_closes_gap?'closes':'does NOT close')+'</b> the gap.';
+      (f.benchmarks_overstate?(' by ~'+Number(f.overstatement_gap).toFixed(2)+' TSS'+ciStr(f.overstatement_gap_ci)+
+        (f.gap_positive_every_year?' — positive in every tested year':'')):'')+
+      '; training on live data <b>'+(f.live_training_closes_gap?'closes':'does NOT close')+'</b> the gap.'+
+      ' <span class="muted">Zero line = climatology (a constant forecast scores TSS 0).</span>';
+    // Reliability diagram (pooled operational years).
+    if(j.reliability){
+      const relEl=document.getElementById('scorecard-reliability');
+      relEl.innerHTML='<b style="font-size:13px">Reliability on operational data</b> '+
+        '<span class="muted" style="font-size:12px">— does “30%” mean 30%?</span><br>'+reliabilitySVG(j.reliability);
+      relEl.hidden=false;
+    }
+    // Storm-model generalisation check.
+    if(j.storm&&j.storm.peak){
+      const s=j.storm, sp=s.peak, sf=s.frozen||{};
+      document.getElementById('scorecard-storm').innerHTML=
+        '<b style="font-size:13px">It generalises: storm model shows the same optimism</b> '+
+        '<span class="muted" style="font-size:12px">('+escapeHtml(s.task||'')+')</span><br>'+
+        '<span class="map-caption">Peak TSS '+Number(sp.benchmark_tss).toFixed(2)+' → '+Number(sp.operational_tss).toFixed(2)+
+        ' <span style="color:var(--x-class)">▼ '+Math.abs(sp.gap).toFixed(2)+'</span>'+ciStr(sp.gap_ci)+
+        (sf.gap!=null?(' · frozen threshold '+Number(sf.benchmark_tss).toFixed(2)+' → '+Number(sf.operational_tss).toFixed(2)+
+        ' <span style="color:var(--x-class)">▼ '+Math.abs(sf.gap).toFixed(2)+'</span>'+ciStr(sf.gap_ci)):'')+'</span>';
+      document.getElementById('scorecard-storm').hidden=false;
+    }
+    // NOAA official baseline comparison.
+    if(j.baselines&&j.baselines.years&&Object.keys(j.baselines.years).length){
+      const rows=Object.entries(j.baselines.years).sort().map(([y,v])=>{
+        const n=v.noaa_official||{}, h=v.helios_deployed||{};
+        return '<tr><td>'+y+' <span class="muted">('+(n.n_days||0)+' days)</span></td>'+
+          '<td class="num">'+(n.brier!=null?n.brier.toFixed(3):'—')+' / '+(n.peak_tss!=null?n.peak_tss.toFixed(2):'—')+'</td>'+
+          '<td class="num">'+(h.brier!=null?h.brier.toFixed(3):'—')+' / '+(h.peak_tss!=null?h.peak_tss.toFixed(2):'—')+'</td></tr>';
+      }).join('');
+      document.getElementById('scorecard-noaa').innerHTML=
+        '<b style="font-size:13px">Against the official standard</b> <span class="muted" style="font-size:12px">— same days, same truth (Brier ↓ / peak TSS ↑)</span>'+
+        '<table class="tracks"><thead><tr><th>Year</th><th style="text-align:right">NOAA official</th><th style="text-align:right">Helios (deployed)</th></tr></thead><tbody>'+rows+'</tbody></table>';
+      document.getElementById('scorecard-noaa').hidden=false;
+    }
   }catch(e){/* optional */}
+  // Gap-mechanism diagnosis (separate artifact; optional).
+  try{
+    const r=await fetch(API_BASE+'/api/diagnosis',{cache:'no-store'}); if(!r.ok) return;
+    const d=await r.json(); const el=document.getElementById('scorecard-diagnosis');
+    const a=d.label_audit||{}, sh=d.distribution_shift||{}, dv=d.model_divergence||{};
+    const top=(sh.top_shifted_features||[{}])[0]||{};
+    el.innerHTML='<b>Why the gap?</b> label protocols agree on <b>'+
+      ((a.positive_jaccard!=null)?(a.positive_jaccard*100).toFixed(0)+'%':'—')+
+      '</b> of flare-windows (label noise ≈'+
+      ((a.positive_jaccard!=null)?(100-a.positive_jaccard*100).toFixed(0)+'%':'—')+
+      ') · most-shifted feature '+escapeHtml(top.feature||'—')+
+      ' (KS '+(top.ks!=null?top.ks:'—')+') · model feature-importance rank agreement ρ='+
+      (dv.spearman_rank_correlation!=null?dv.spearman_rank_correlation:'—')+
+      ' <span class="muted">(details: /api/diagnosis)</span>';
+    el.hidden=false;
+  }catch(e){/* optional */}
+}
+
+async function fireDemoAlert(){
+  const btn=document.getElementById('demo-alert-btn'), out=document.getElementById('demo-alert-result');
+  if(btn) btn.disabled=true;
+  if(out) out.textContent='firing…';
+  try{
+    const r=await fetch(API_BASE+'/api/alerts/demo',{method:'POST'});
+    const j=await r.json(); const ch=j.channels||{};
+    const sent=[];
+    if(ch.log) sent.push('log');
+    if(ch.webhook) sent.push('webhook');
+    if(ch.email) sent.push('email: '+ch.email);
+    out.textContent='Demo alert fired → '+(sent.join(' · ')||'no channels');
+  }catch(e){ if(out) out.textContent='demo alert failed'; }
+  if(btn) btn.disabled=false;
 }
 
 async function loadSharpLive(atISO){

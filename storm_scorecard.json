@@ -1,0 +1,65 @@
+{
+  "title": "Storm model: benchmark vs. operational skill (generalisation check)",
+  "task": "P(Kp>=5 within 24h) from L1 solar wind (OMNI)",
+  "winner": "extra_trees",
+  "eras": {
+    "benchmark": "2011-01-01..2021-01-01 (held-out chronological test: 5842 windows, 123 storms)",
+    "operational": "2021-01-01..2025-01-01 (unseen later era, different solar-cycle phase: 11669 windows, 1032 storms)"
+  },
+  "base_rates": {
+    "benchmark_test": 0.0211,
+    "operational": 0.0884
+  },
+  "peak": {
+    "benchmark_tss": 0.562,
+    "benchmark_ci": [
+      0.411,
+      0.76
+    ],
+    "operational_tss": 0.397,
+    "operational_ci": [
+      0.349,
+      0.458
+    ],
+    "gap": 0.165,
+    "gap_ci": [
+      0.006,
+      0.372
+    ]
+  },
+  "frozen": {
+    "threshold": 0.564,
+    "benchmark_tss": 0.508,
+    "benchmark_ci": [
+      0.313,
+      0.742
+    ],
+    "operational_tss": 0.391,
+    "operational_ci": [
+      0.337,
+      0.447
+    ],
+    "gap": 0.117,
+    "gap_ci": [
+      -0.067,
+      0.363
+    ]
+  },
+  "method": {
+    "bootstrap": "moving-block bootstrap, 500 replicates, 7-day blocks (storm windows autocorrelate \u2014 i.i.d. resampling would understate uncertainty)",
+    "note": "operational era spans a different solar-cycle phase; that IS part of what deployment faces, not a confound to remove"
+  },
+  "findings": {
+    "benchmarks_overstate": true,
+    "overstatement_gap": 0.165,
+    "overstatement_gap_ci": [
+      0.006,
+      0.372
+    ],
+    "frozen_overstatement_gap": 0.117,
+    "frozen_overstatement_gap_ci": [
+      -0.067,
+      0.363
+    ]
+  }
+}

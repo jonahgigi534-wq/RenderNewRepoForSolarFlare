@@ -111,14 +111,43 @@ def sharp_live_endpoint(at: str = Query("", description="optional ISO-8601 UTC t
     return JSONResponse(sl.predict_live(cfg, at_time=at_time))
 
 
+def _read_json(path: str):
+    import json
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
 @app.get("/api/scorecard")
 def scorecard_endpoint():
-    """Model Skill Scorecard — benchmark vs. real operational TSS (the research result;
-    built by `python -m solarflare.scorecard`)."""
-    p = os.path.join(cfg["_project_root"], "skill_scorecard.json")
-    if os.path.exists(p):
-        return FileResponse(p, media_type="application/json", headers={"Cache-Control": "no-store"})
-    return JSONResponse({"available": False, "note": "run: python -m solarflare.scorecard"}, status_code=404)
+    """Model Skill Scorecard — benchmark vs. real operational TSS with bootstrap CIs
+    (the research result; built by `python -m solarflare.scorecard`). The storm-model
+    generalisation check (python -m solarflare.storm_scorecard) is merged in when built."""
+    data = _read_json(os.path.join(cfg["_project_root"], "skill_scorecard.json"))
+    if data is None:
+        return JSONResponse({"available": False, "note": "run: python -m solarflare.scorecard"},
+                            status_code=404)
+    storm_check = _read_json(os.path.join(cfg["_project_root"], "storm_scorecard.json"))
+    if storm_check is not None:
+        data["storm"] = storm_check
+    baselines = _read_json(os.path.join(cfg["_project_root"], "noaa_baseline.json"))
+    if baselines is not None:
+        data["baselines"] = baselines
+    return JSONResponse(data, headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/diagnosis")
+def diagnosis_endpoint():
+    """WHY the benchmark-operational gap exists — label audit, distribution shift,
+    permutation importance (built by `python -m solarflare.experiments.gap_diagnosis`)."""
+    data = _read_json(os.path.join(cfg["_project_root"], "gap_diagnosis.json"))
+    if data is None:
+        return JSONResponse({"available": False,
+                             "note": "run: python -m solarflare.experiments.gap_diagnosis"},
+                            status_code=404)
+    return JSONResponse(data, headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/impact")
@@ -131,6 +160,13 @@ def impact_endpoint():
 def alerts_endpoint():
     """Threshold alerts — log/webhook (email off, no secrets). STEP 8."""
     return JSONResponse(alerts.build_alerts(cfg))
+
+
+@app.post("/api/alerts/demo")
+def alerts_demo_endpoint():
+    """Fire one clearly-labelled DEMO alert through the real channels (log +
+    webhook + email; dry-run safe). Proves the alert pipeline live."""
+    return JSONResponse(alerts.demo_alert(cfg))
 
 
 @app.get("/api/notify/status")

@@ -96,12 +96,17 @@ def time_group_split(groups, end_times, frac: dict):
             np.array(idx_te, dtype=int))
 
 
-def train(data_path: str, cfg: dict | None = None, save: bool = True) -> dict:
+def train(data_path: str | dict, cfg: dict | None = None, save: bool = True) -> dict:
+    """`data_path` may also be an already-loaded dataset dict (X3d/y/groups/
+    end_times) — used by the scorecard to train on several years concatenated."""
     cfg = cfg or load_config()
     sl = cfg["sharp_live"]
     sel = sl["selection_metric"]
-    print(f"Loading dataset: {data_path}")
-    d = sharpdata.load_dataset(data_path)
+    if isinstance(data_path, dict):
+        d = data_path
+    else:
+        print(f"Loading dataset: {data_path}")
+        d = sharpdata.load_dataset(data_path)
     X3d, y, groups, ends = d["X3d"], d["y"], d["groups"], d["end_times"]
     Xf = dataio.build_matrix(X3d, cfg)                    # (n, 17*7 = 119) raw-derived features
     print(f"  samples={len(y)}  features={Xf.shape[1]}  positives={int(y.sum())} "

@@ -32,13 +32,13 @@
 | l1_solar_wind | 30 | -0.029 | 0.66 | 0.13 |
 | recurrence_27d | 27 | 0.131 | 0.44 | 0.18 |
 | climatology | — | 0.000 | — | — |
-| cme_donki | 2 | -0.037 | 0.18 | 0.11 |
+| cme_donki | 2 | 0.038 | 0.43 | 0.14 |
 
 ## What the figure shows
 
 - **Skill decays with lead time.** Both persistence and the L1 solar-wind model are most skilful at the shortest leads and fall toward the climatology (zero-skill) line as the horizon grows.
 - **L1 beats persistence at short lead** (best L1 TSS 0.40 at 1d vs persistence 0.31 at 1d) — measuring the upstream solar wind adds genuine skill over 'tomorrow = today'.
 - **A 27-day recurrence bump** (TSS 0.13) appears at one solar rotation — recurrent coronal-hole streams give weak but real long-lead skill that smoothly-decaying persistence misses.
-- **CMEs extend useful lead to 1-3 days** (best TSS -0.04 at 2d): a fast Earth-directed CME flags a storm days before its solar wind reaches L1.
+- **CMEs extend useful lead to 1-3 days** (best TSS 0.04 at 2d): a fast Earth-directed CME flags a storm days before its solar wind reaches L1.
 
 **Takeaway:** no single vantage point forecasts storms well at every lead time. Short-lead skill comes from L1; the 1-3 day horizon needs CME observations; and only the weak 27-day recurrence offers anything further out. An honest operational system must combine vantage points by lead.

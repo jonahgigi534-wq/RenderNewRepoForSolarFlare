@@ -29,6 +29,21 @@ def _level(scales: dict, key: str) -> int:
         return 0
 
 
+def _historical(cfg: dict) -> list:
+    """Config-driven real-event anchors (Quebec 1989, Starlink 2022, ...) — the
+    'why it matters' context with documented costs. Whitespace in folded YAML
+    strings is normalised."""
+    out = []
+    for e in cfg.get("impact", {}).get("historical_events", []) or []:
+        try:
+            out.append({"scale": str(e.get("scale", "")), "code": str(e.get("code", "")),
+                        "year": int(e.get("year", 0)), "event": str(e.get("event", "")),
+                        "detail": " ".join(str(e.get("detail", "")).split())})
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
 def build_impact(cfg: dict | None = None) -> dict:
     cfg = cfg or load_config()
     res = sources.get_noaa_scales(cfg)
@@ -47,6 +62,7 @@ def build_impact(cfg: dict | None = None) -> dict:
         "status": res.status if res.ok else "unavailable",
         "scales": out,
         "all_quiet": not any(v["active"] for v in out.values()),
+        "historical": _historical(cfg),
         "disclaimer": "Plain-language impacts mapped from NOAA's R/S/G space-weather "
                       "scales. Guidance only — see NOAA SWPC for official alerts.",
     }

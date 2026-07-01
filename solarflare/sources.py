@@ -281,10 +281,12 @@ def get_donki_cme(cfg: dict | None = None, start_date: str = "", end_date: str =
 
 def get_omni(cfg: dict, time_min: str, time_max: str) -> FetchResult:
     """NASA OMNI hourly via CDAWeb HAPI (CSV) for storm-model training. Cached
-    (the training range is fixed per day, so re-runs reuse the cache)."""
+    PER TIME RANGE — different callers (storm trainer, lead-time experiment,
+    storm scorecard eras) must never collide on one shared cache entry."""
     s = cfg["storm"]
     url = (f"{s['hapi_base']}/data?id={s['hapi_dataset']}"
            f"&parameters={','.join(s['omni_params'])}"
            f"&time.min={time_min}&time.max={time_max}&format=csv")
     ttl = s.get("cache_hours", 6) * 60
-    return _fetch([url], cfg, "omni_train", as_json=False, fresh_within_min=ttl)
+    key = f"omni_train_{time_min[:10]}_{time_max[:10]}".replace("-", "")
+    return _fetch([url], cfg, key, as_json=False, fresh_within_min=ttl)

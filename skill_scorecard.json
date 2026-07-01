@@ -1,29 +1,454 @@
 {
   "title": "Benchmark score vs. real operational skill",
-  "metric": "peak TSS (True Skill Statistic; higher is better, 0 = no skill)",
+  "metric": "TSS (True Skill Statistic; higher is better, 0 = no skill)",
+  "method": {
+    "peak": "best TSS over all thresholds (Youden's J) \u2014 a threshold-free skill ceiling, fair across test sets but generous",
+    "frozen": "TSS with the validation-tuned threshold committed in advance \u2014 the honest deployment score",
+    "bootstrap": "1000 cluster-bootstrap resamples (whole active regions, because windows of one region are correlated), 95% percentile CIs, paired across models",
+    "climatology_note": "a constant-probability (climatology) forecast has TSS = 0 by construction \u2014 the zero line IS the climatology baseline"
+  },
   "test_sets": {
     "benchmark": "held-out SWAN-SF magnetograms (14690 windows, 236 flares)",
-    "operational": "live JSOC 2015, an unseen year (12597 windows, 273 flares)"
+    "operational": "live JSOC, unseen year(s): 2013 (13431 windows, 170 flares), 2015 (12597 windows, 273 flares), 2016 (7440 windows, 25 flares), 2017 (3474 windows, 43 flares)",
+    "operational_years": [
+      2013,
+      2015,
+      2016,
+      2017
+    ]
   },
   "models": [
     {
       "name": "Benchmark-trained",
       "detail": "SWAN-SF 2010-2012",
-      "benchmark_tss": 0.905,
-      "operational_tss": 0.822,
-      "gap": 0.083
+      "operational_years_used": [
+        2013,
+        2015,
+        2016,
+        2017
+      ],
+      "benchmark_tss": 0.906,
+      "operational_tss": 0.828,
+      "gap": 0.078,
+      "benchmark_ci": [
+        0.854,
+        0.961
+      ],
+      "operational_ci": [
+        0.609,
+        0.869
+      ],
+      "gap_ci": [
+        0.006,
+        0.306
+      ],
+      "frozen": {
+        "threshold": 0.031,
+        "benchmark_tss": 0.877,
+        "benchmark_ci": [
+          0.821,
+          0.928
+        ],
+        "operational_tss": 0.791,
+        "operational_ci": [
+          0.575,
+          0.838
+        ],
+        "gap": 0.085,
+        "gap_ci": [
+          0.007,
+          0.309
+        ]
+      },
+      "by_year": {
+        "2013": {
+          "peak_tss": 0.739,
+          "peak_ci": [
+            0.673,
+            0.818
+          ],
+          "frozen_tss": 0.721,
+          "frozen_ci": [
+            0.623,
+            0.805
+          ],
+          "n": 13431,
+          "positives": 170
+        },
+        "2015": {
+          "peak_tss": 0.825,
+          "peak_ci": [
+            0.784,
+            0.877
+          ],
+          "frozen_tss": 0.813,
+          "frozen_ci": [
+            0.743,
+            0.868
+          ],
+          "n": 12597,
+          "positives": 273
+        },
+        "2016": {
+          "peak_tss": 0.876,
+          "peak_ci": [
+            0.839,
+            0.975
+          ],
+          "frozen_tss": 0.792,
+          "frozen_ci": [
+            0.249,
+            0.922
+          ],
+          "n": 7440,
+          "positives": 25
+        },
+        "2017": {
+          "peak_tss": 0.87,
+          "peak_ci": [
+            0.0,
+            0.953
+          ],
+          "frozen_tss": 0.84,
+          "frozen_ci": [
+            0.0,
+            0.921
+          ],
+          "n": 3474,
+          "positives": 43
+        }
+      }
     },
     {
       "name": "Live-trained",
       "detail": "JSOC live data (2014)",
+      "operational_years_used": [
+        2013,
+        2015,
+        2016,
+        2017
+      ],
       "benchmark_tss": 0.914,
-      "operational_tss": 0.799,
-      "gap": 0.115
+      "operational_tss": 0.804,
+      "gap": 0.109,
+      "benchmark_ci": [
+        0.88,
+        0.957
+      ],
+      "operational_ci": [
+        0.59,
+        0.857
+      ],
+      "gap_ci": [
+        0.041,
+        0.336
+      ],
+      "frozen": {
+        "threshold": 0.089,
+        "benchmark_tss": 0.794,
+        "benchmark_ci": [
+          0.606,
+          0.934
+        ],
+        "operational_tss": 0.616,
+        "operational_ci": [
+          0.339,
+          0.721
+        ],
+        "gap": 0.178,
+        "gap_ci": [
+          -0.023,
+          0.5
+        ]
+      },
+      "by_year": {
+        "2013": {
+          "peak_tss": 0.722,
+          "peak_ci": [
+            0.66,
+            0.796
+          ],
+          "frozen_tss": 0.554,
+          "frozen_ci": [
+            0.438,
+            0.669
+          ],
+          "n": 13431,
+          "positives": 170
+        },
+        "2015": {
+          "peak_tss": 0.799,
+          "peak_ci": [
+            0.755,
+            0.842
+          ],
+          "frozen_tss": 0.49,
+          "frozen_ci": [
+            0.309,
+            0.649
+          ],
+          "n": 12597,
+          "positives": 273
+        },
+        "2016": {
+          "peak_tss": 0.834,
+          "peak_ci": [
+            0.743,
+            0.968
+          ],
+          "frozen_tss": 0.657,
+          "frozen_ci": [
+            -0.023,
+            0.95
+          ],
+          "n": 7440,
+          "positives": 25
+        },
+        "2017": {
+          "peak_tss": 0.862,
+          "peak_ci": [
+            0.0,
+            0.962
+          ],
+          "frozen_tss": 0.763,
+          "frozen_ci": [
+            0.0,
+            0.943
+          ],
+          "n": 3474,
+          "positives": 43
+        }
+      }
+    },
+    {
+      "name": "Live-trained (multi-year)",
+      "detail": "JSOC 2011+2012+2014",
+      "operational_years_used": [
+        2015,
+        2016,
+        2017
+      ],
+      "benchmark_tss": 0.928,
+      "operational_tss": 0.882,
+      "gap": 0.046,
+      "benchmark_ci": [
+        0.879,
+        0.987
+      ],
+      "operational_ci": [
+        0.585,
+        0.93
+      ],
+      "gap_ci": [
+        -0.027,
+        0.35
+      ],
+      "frozen": {
+        "threshold": 0.007,
+        "benchmark_tss": 0.851,
+        "benchmark_ci": [
+          0.788,
+          0.908
+        ],
+        "operational_tss": 0.838,
+        "operational_ci": [
+          0.553,
+          0.866
+        ],
+        "gap": 0.013,
+        "gap_ci": [
+          -0.063,
+          0.305
+        ]
+      },
+      "by_year": {
+        "2015": {
+          "peak_tss": 0.834,
+          "peak_ci": [
+            0.776,
+            0.897
+          ],
+          "frozen_tss": 0.813,
+          "frozen_ci": [
+            0.757,
+            0.856
+          ],
+          "n": 12597,
+          "positives": 273
+        },
+        "2016": {
+          "peak_tss": 0.924,
+          "peak_ci": [
+            0.895,
+            0.993
+          ],
+          "frozen_tss": 0.877,
+          "frozen_ci": [
+            0.839,
+            0.909
+          ],
+          "n": 7440,
+          "positives": 25
+        },
+        "2017": {
+          "peak_tss": 0.888,
+          "peak_ci": [
+            0.0,
+            0.973
+          ],
+          "frozen_tss": 0.823,
+          "frozen_ci": [
+            0.0,
+            0.884
+          ],
+          "n": 3474,
+          "positives": 43
+        }
+      }
     }
   ],
+  "reliability": {
+    "Benchmark-trained": {
+      "bins": [
+        {
+          "p_lo": 0.0,
+          "p_hi": 0.1,
+          "p_mean": 0.0083,
+          "obs_freq": 0.0045,
+          "n": 34988
+        },
+        {
+          "p_lo": 0.1,
+          "p_hi": 0.2,
+          "p_mean": 0.1217,
+          "obs_freq": 0.1712,
+          "n": 1647
+        },
+        {
+          "p_lo": 0.2,
+          "p_hi": 0.3,
+          "p_mean": 0.252,
+          "obs_freq": 0.1299,
+          "n": 77
+        },
+        {
+          "p_lo": 0.3,
+          "p_hi": 0.4,
+          "p_mean": 0.329,
+          "obs_freq": 0.2488,
+          "n": 217
+        },
+        {
+          "p_lo": 0.4,
+          "p_hi": 0.5,
+          "p_mean": 0.4489,
+          "obs_freq": 0.4444,
+          "n": 9
+        },
+        {
+          "p_lo": 0.5,
+          "p_hi": 0.6,
+          "p_mean": 0.5183,
+          "obs_freq": 0.6667,
+          "n": 3
+        },
+        {
+          "p_lo": 0.6,
+          "p_hi": 0.7,
+          "p_mean": 0.6239,
+          "obs_freq": 1.0,
+          "n": 1
+        }
+      ],
+      "brier": 0.01198,
+      "base_rate": 0.01383
+    },
+    "Live-trained": {
+      "bins": [
+        {
+          "p_lo": 0.0,
+          "p_hi": 0.1,
+          "p_mean": 0.0131,
+          "obs_freq": 0.0075,
+          "n": 35757
+        },
+        {
+          "p_lo": 0.1,
+          "p_hi": 0.2,
+          "p_mean": 0.1135,
+          "obs_freq": 0.2059,
+          "n": 1185
+        }
+      ],
+      "brier": 0.01249,
+      "base_rate": 0.01383
+    },
+    "Live-trained (multi-year)": {
+      "bins": [
+        {
+          "p_lo": 0.0,
+          "p_hi": 0.1,
+          "p_mean": 0.0049,
+          "obs_freq": 0.0041,
+          "n": 22577
+        },
+        {
+          "p_lo": 0.1,
+          "p_hi": 0.2,
+          "p_mean": 0.1405,
+          "obs_freq": 0.1636,
+          "n": 599
+        },
+        {
+          "p_lo": 0.2,
+          "p_hi": 0.3,
+          "p_mean": 0.2365,
+          "obs_freq": 0.4441,
+          "n": 322
+        },
+        {
+          "p_lo": 0.3,
+          "p_hi": 0.4,
+          "p_mean": 0.3141,
+          "obs_freq": 0.6154,
+          "n": 13
+        }
+      ],
+      "brier": 0.01123,
+      "base_rate": 0.0145
+    }
+  },
   "findings": {
     "benchmarks_overstate": true,
-    "overstatement_gap": 0.083,
-    "live_training_closes_gap": false
+    "overstatement_gap": 0.078,
+    "overstatement_gap_ci": [
+      0.006,
+      0.306
+    ],
+    "frozen_overstatement_gap": 0.085,
+    "frozen_overstatement_gap_ci": [
+      0.007,
+      0.309
+    ],
+    "gap_positive_every_year": true,
+    "live_training_closes_gap": false,
+    "live_minus_benchmark_gap_ci": [
+      -0.087,
+      0.021
+    ],
+    "more_live_data": {
+      "years_compared": [
+        2015,
+        2016,
+        2017
+      ],
+      "single_year_gap_same_years": 0.082,
+      "multi_year_gap": 0.046,
+      "more_data_closes_gap": true,
+      "single_minus_multi_gap_ci": [
+        -0.038,
+        0.102
+      ]
+    }
   }
 }

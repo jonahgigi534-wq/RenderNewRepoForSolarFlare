@@ -606,6 +606,48 @@ def run_once(cfg: dict | None = None) -> dict:
             "verifications": verifications, "daily_digest": daily, "history_csv": csv_path}
 
 
+def prospective_record(conn: sqlite3.Connection, cfg: dict) -> dict:
+    """The PROSPECTIVE forecast record — the gold standard no retrospective test
+    can match: every verified daily row was issued BEFORE the outcome was
+    knowable. Scores the daily P(M+ in 24h) forecasts against what the Sun then
+    did: Brier score (proper, works at any n) + TSS at the alert threshold once
+    enough days accumulate. Grows automatically as the notifier runs."""
+    rows = conn.execute(
+        "SELECT probability, materialized FROM predictions "
+        "WHERE kind='daily' AND status='verified' AND probability IS NOT NULL "
+        "AND materialized IS NOT NULL ORDER BY id").fetchall()
+    n = len(rows)
+    if n == 0:
+        return {"available": False, "n_days": 0,
+                "note": "builds one verified forecast per day the notifier runs — "
+                        "a true prospective test (forecast issued before the outcome)"}
+    p = [float(r["probability"]) for r in rows]
+    y = [int(r["materialized"]) for r in rows]
+    brier = sum((pi - yi) ** 2 for pi, yi in zip(p, y)) / n
+    events = sum(y)
+    thr = float(cfg.get("notify", {}).get("alert_probability", 0.5))
+    tp = sum(1 for pi, yi in zip(p, y) if pi >= thr and yi)
+    fp = sum(1 for pi, yi in zip(p, y) if pi >= thr and not yi)
+    fn = sum(1 for pi, yi in zip(p, y) if pi < thr and yi)
+    tn = sum(1 for pi, yi in zip(p, y) if pi < thr and not yi)
+    tss = None
+    if (tp + fn) and (fp + tn):                       # both classes observed
+        tss = round(tp / (tp + fn) - fp / (fp + tn), 3)
+    return {
+        "available": True,
+        "n_days": n,
+        "events": events,                             # days an M+ flare actually followed
+        "base_rate": round(events / n, 3),
+        "brier": round(brier, 4),
+        "brier_climatology": round(sum((events / n - yi) ** 2 for yi in y) / n, 4),
+        "tss_at_alert_threshold": tss,                # None until both outcomes seen
+        "alert_threshold_p": thr,
+        "confusion": {"tp": tp, "fp": fp, "fn": fn, "tn": tn},
+        "note": "prospective — every forecast was issued before its outcome window; "
+                "TSS appears once both flare and no-flare days exist",
+    }
+
+
 def status(cfg: dict | None = None, limit: int = 20) -> dict:
     cfg = cfg or load_config()
     conn = _db(cfg)
@@ -620,6 +662,7 @@ def status(cfg: dict | None = None, limit: int = 20) -> dict:
         graded = conn.execute(
             "SELECT err_dex, persist_err_dex, clim_err_dex FROM predictions "
             "WHERE status='verified' AND err_dex IS NOT NULL ORDER BY id").fetchall()
+        prospective = prospective_record(conn, cfg)
     finally:
         conn.close()
     from . import magnitude
@@ -642,6 +685,7 @@ def status(cfg: dict | None = None, limit: int = 20) -> dict:
         "history": {"total": total, "verified": verified, "hits": hits,
                     "csv_url": "/api/notify/history.csv"},
         "accuracy": accuracy,            # honest peak-magnitude skill (log-flux vs baselines)
+        "prospective": prospective,      # the growing real-time forecast record
         "recent": [dict(r) for r in rows],
     }
 

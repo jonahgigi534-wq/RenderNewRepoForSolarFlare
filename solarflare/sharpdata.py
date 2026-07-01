@@ -55,20 +55,27 @@ def _jsoc_time(dt: datetime) -> str:
 # Fetch: SHARP keyword time series (JSOC) and flares (HEK)
 # ----------------------------------------------------------------------
 def _query_range(client, keystr: str, t0: datetime, t1: datetime, depth: int = 0):
-    """Query [t0, t1); JSOC caps result size, so on a size error split and recurse."""
+    """Query [t0, t1); JSOC caps result size, so on a size error split and recurse.
+    Transient network failures (connection reset, timeout) retry with backoff — a
+    multi-hour build must not die on one dropped socket."""
     import drms
     import pandas as pd
     days = max(1, round((t1 - t0).total_seconds() / 86400))
     q = f"{SERIES}[][{_jsoc_time(t0)}/{days}d]"
-    try:
-        return client.query(q, key=keystr)
-    except drms.exceptions.DrmsQueryError:
-        if days <= 1 or depth > 7:
-            raise
-        mid = t0 + (t1 - t0) / 2
-        return pd.concat([_query_range(client, keystr, t0, mid, depth + 1),
-                          _query_range(client, keystr, mid, t1, depth + 1)],
-                         ignore_index=True)
+    for attempt in range(4):
+        try:
+            return client.query(q, key=keystr)
+        except drms.exceptions.DrmsQueryError:
+            if days <= 1 or depth > 7:
+                raise
+            mid = t0 + (t1 - t0) / 2
+            return pd.concat([_query_range(client, keystr, t0, mid, depth + 1),
+                              _query_range(client, keystr, mid, t1, depth + 1)],
+                             ignore_index=True)
+        except Exception:                         # noqa: BLE001 (network hiccup — retry)
+            if attempt == 3:
+                raise
+            time.sleep(10 * (attempt + 1))
 
 
 def fetch_sharp(t_start: datetime, t_end: datetime, cfg: dict, *, chunk_days: int | None = None,

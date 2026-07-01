@@ -6,6 +6,26 @@ now** from live NOAA data, and forecasts flare probability at **12 / 24 / 48 h**
 lead times — with an escalating warning for X-class events. Ships with a
 polished web **forecast page**.
 
+## The research question
+
+> **Do standard benchmark scores overstate the real-time operational skill of
+> ML flare forecasts — and does training on live satellite data close the gap?**
+
+Helios answers it with a reproducible 2×2 experiment (benchmark-trained vs
+live-trained models × benchmark vs unseen-operational-year test sets), bootstrap
+confidence intervals, frozen-threshold deployment scores, a storm-model
+generalisation check, a mechanism diagnosis (label noise / distribution shift /
+model divergence), and a comparison against NOAA's own archived official
+forecasts. **One command reproduces everything:**
+
+```bash
+python -m solarflare.reproduce     # -> RESULTS.md + all JSON artifacts
+```
+
+See **RESULTS.md** (auto-generated findings) and **MODEL_CARD.md** (honest model
+documentation). The dashboard's "Model skill scorecard" panel shows the result
+live with CIs, per-year chips, a reliability diagram, and the NOAA comparison.
+
 > **Model status:** a model bake-off (HistGB, RandomForest, ExtraTrees and
 > Logistic, plus LightGBM & XGBoost when those optional libraries are installed)
 > picks the best on a held-out validation
@@ -156,8 +176,11 @@ supply the **original** SWAN-SF multi-class labels and set
 | `GET /api/satellites` | satellites at risk by altitude band (CelesTrak TLE; `?scope=default\|all`) |
 | `GET /api/storm` | geomagnetic-storm forecast — P(Kp≥5, 24 h) from the L1 solar wind (OMNI-trained ML) |
 | `GET /api/sharp_live` | live SHARP ML flare forecast — P(M+ in 24 h) per active region from JSOC magnetic data (our own JSOC-trained model; `?at=ISO` for a historical demo) |
-| `GET /api/impact` | plain-language R/S/G space-weather impact statements |
+| `GET /api/scorecard` | the research result: benchmark vs operational TSS with bootstrap CIs, frozen thresholds, per-year scores, reliability data (+ storm check & NOAA baseline when built) |
+| `GET /api/diagnosis` | WHY the gap exists — label audit, distribution shift, permutation importance |
+| `GET /api/impact` | plain-language R/S/G space-weather impact statements + historical cost anchors |
 | `GET /api/alerts` | active threshold alerts (log/webhook) |
+| `POST /api/alerts/demo` | fire one clearly-labelled demo alert through the real channels |
 | `GET /api/notify/status` | email-notifier state (dry-run/live, thresholds, pending + recent predictions) |
 | `GET /api/notify/history.csv` | prediction-history spreadsheet (forecast vs verified outcome) |
 | `GET /api/experiment/leadtime[.png]` | lead-time-vs-skill experiment results + figure |
@@ -281,8 +304,14 @@ solarflare/
   hazard.py    geomag.py    dayside HF blackout (D-RAP) · auroral oval + Kp (OVATION)
   satellites.py             satellites-at-risk by altitude band (CelesTrak TLE)
   storm.py     stormdata.py geomagnetic-storm forecaster · OMNI loader + features
-  impact.py    alerts.py    R/S/G plain-language impacts · threshold alerts
+  impact.py    alerts.py    R/S/G plain-language impacts · threshold alerts (+ demo)
+  sharpdata.py sharptrain.py JSOC+HEK dataset builder · live-model trainer
+  swansf_data.py sharp_live.py SWAN-SF tar parser · live JSOC inference
+  scorecard.py storm_scorecard.py  the 2x2 research experiment (+CIs) · storm check
+  reproduce.py             one-command reproduction of every research artifact
   experiments/leadtime_skill.py    lead-time vs skill experiment (CSV/PNG/RESULTS.md)
+  experiments/gap_diagnosis.py     why the gap exists (labels/shift/importance)
+  experiments/noaa_baseline.py     deployed model vs NOAA's archived official forecast
 api/server.py                FastAPI backend + serves the frontend
 frontend/index.html          the forecast page (dark ops dashboard + map/globe)
 scripts/smoke_test.py        end-to-end proof with no download

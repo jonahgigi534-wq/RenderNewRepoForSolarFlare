@@ -81,6 +81,31 @@ def build_alerts(cfg: dict | None = None) -> dict:
     }
 
 
+def demo_alert(cfg: dict | None = None) -> dict:
+    """Fire ONE clearly-labelled demo alert through the REAL channels (log +
+    webhook + email via the notifier). Proves the alert path works end to end
+    without waiting for the Sun to cooperate. Dry-run safe: with SMTP unset the
+    email lands in the outbox log instead. Never raises."""
+    cfg = cfg or load_config()
+    al = {"type": "demo", "level": "DEMO", "severity": "demo",
+          "message": "DEMO ALERT — this is what a live Helios alert looks like: "
+                     "the flare model's P(M-class+ within 24 h) crossed the alert "
+                     "threshold. HF radio degradation likely on the sunlit side. "
+                     "(Demonstration only — no real event.)"}
+    channels = _emit(cfg, [al])
+    try:
+        from . import notify
+        channels["email"] = notify.send_email(
+            cfg, "[HELIOS DEMO] Space-weather alert — demonstration",
+            al["message"] + "\n\nSent by the Helios demo-alert button to show the "
+            "real alert pipeline (log + webhook + email) working end to end.")
+    except Exception as exc:                              # noqa: BLE001 (never raise)
+        log.warning("demo alert email failed: %s", type(exc).__name__)
+        channels["email"] = "failed"
+    return {"generated_at": datetime.now(timezone.utc).isoformat(),
+            "demo": True, "alert": al, "channels": channels}
+
+
 def _emit(cfg: dict, alerts: list) -> dict:
     a = cfg.get("alerts", {})
     for al in alerts:                                     # log channel — always on

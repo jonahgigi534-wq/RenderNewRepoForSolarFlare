@@ -241,6 +241,42 @@ experiment:
 # Pure rules-based text mapped from NOAA's own current scale values.
 # ----------------------------------------------------------------------
 impact:
+  # Real events that anchor each hazard scale — why space weather matters, with
+  # documented costs. Shown in the dashboard "why it matters" strip.
+  historical_events:
+    - scale: G
+      code: G5
+      year: 1989
+      event: "Quebec blackout (March 1989)"
+      detail: "A G5 geomagnetic storm collapsed Hydro-Québec's power grid in 92 seconds —
+               6 million people lost electricity for 9 hours; ~C$2 billion in damage and
+               lost output."
+    - scale: G
+      code: G1–G2
+      year: 2022
+      event: "Starlink launch loss (February 2022)"
+      detail: "A MINOR storm heated the upper atmosphere enough to drag 38 of 49 freshly
+               launched Starlink satellites back into it — a ~$50M loss from a storm rated
+               only G1–G2. Even small storms have price tags."
+    - scale: R
+      code: R3
+      year: 2017
+      event: "Hurricane Irma response blackouts (September 2017)"
+      detail: "X-class flares caused R3 HF-radio blackouts exactly while emergency crews
+               were coordinating the Hurricane Irma response — aircraft and ships lost HF
+               contact for hours on the sunlit side."
+    - scale: S
+      code: S3
+      year: 2003
+      event: "Halloween storms (October 2003)"
+      detail: "Airlines rerouted polar flights (up to ~$100k per flight), astronauts took
+               shelter, ~60% of NASA missions saw effects, and Malmö (Sweden) lost power."
+    - scale: G
+      code: G5+
+      year: 1859
+      event: "Carrington event (1859)"
+      detail: "The strongest recorded storm set telegraph offices sparking. Studies put a
+               modern repeat at $0.6–2.6 trillion of damage in the US alone."
   statements:
     R:
       0: "No radio blackouts — HF radio and satellite navigation are normal."
@@ -353,6 +389,28 @@ sharp_live:
   random_state: 42
   model_path: models/flare_sharp_live_model.joblib
   cache_minutes: 15               # reuse a live result this long (avoid re-hitting JSOC)
+
+# ----------------------------------------------------------------------
+# Model Skill Scorecard — the research experiment (python -m solarflare.scorecard).
+# Bootstrap gives every TSS and every benchmark-vs-operational gap a 95% CI.
+# ----------------------------------------------------------------------
+scorecard:
+  bootstrap_replicates: 1000
+  ci_level: 0.95
+  reliability_bins: 10
+  random_state: 42
+
+# Storm-model generalisation check (python -m solarflare.storm_scorecard):
+# benchmark era (chronological split inside) vs a later fully-unseen era.
+storm_scorecard:
+  benchmark_start: "2011-01-01"
+  benchmark_end: "2021-01-01"
+  operational_start: "2021-01-01"
+  operational_end: "2025-01-01"
+  bootstrap_replicates: 500
+  block_days: 7
+  ci_level: 0.95
+  random_state: 42
 
 api:
   host: 127.0.0.1

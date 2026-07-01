@@ -1,0 +1,266 @@
+{
+  "title": "Why does the benchmark-operational gap exist?",
+  "question": "label-protocol mismatch, distribution shift, or model divergence?",
+  "base_rates": {
+    "benchmark_test": 0.0161,
+    "operational_2015": 0.0217
+  },
+  "label_audit": {
+    "n_windows_compared": 44989,
+    "n_skipped_no_noaa_mapping": 28503,
+    "agreement": 0.9981,
+    "positive_jaccard": 0.9315,
+    "confusion": {
+      "both_positive": 1170,
+      "swansf_only_positive": 84,
+      "hek_only_positive": 2,
+      "both_negative": 43733
+    },
+    "reading": "positive_jaccard is the share of flare-windows BOTH protocols agree on; swansf_only/hek_only counts are windows where the two labeling pipelines contradict each other \u2014 that disagreement is label noise the operational test inherits."
+  },
+  "distribution_shift": {
+    "metric": "two-sample Kolmogorov-Smirnov statistic (0 = identical distributions, 1 = disjoint)",
+    "median_ks_all_features": 0.055,
+    "top_shifted_features": [
+      {
+        "feature": "MEANSHR__max",
+        "ks": 0.128
+      },
+      {
+        "feature": "SHRGT45__max",
+        "ks": 0.117
+      },
+      {
+        "feature": "R_VALUE__std",
+        "ks": 0.111
+      },
+      {
+        "feature": "R_VALUE__max",
+        "ks": 0.109
+      },
+      {
+        "feature": "SHRGT45__mean",
+        "ks": 0.1
+      },
+      {
+        "feature": "MEANSHR__min",
+        "ks": 0.098
+      },
+      {
+        "feature": "MEANPOT__min",
+        "ks": 0.091
+      },
+      {
+        "feature": "SHRGT45__min",
+        "ks": 0.089
+      },
+      {
+        "feature": "SHRGT45__std",
+        "ks": 0.085
+      },
+      {
+        "feature": "TOTUSJZ__max",
+        "ks": 0.085
+      },
+      {
+        "feature": "MEANGBT__min",
+        "ks": 0.084
+      },
+      {
+        "feature": "R_VALUE__mean",
+        "ks": 0.084
+      },
+      {
+        "feature": "MEANSHR__mean",
+        "ks": 0.084
+      },
+      {
+        "feature": "MEANALP__mean",
+        "ks": 0.083
+      },
+      {
+        "feature": "TOTUSJZ__std",
+        "ks": 0.082
+      }
+    ],
+    "max_ks_by_keyword": [
+      {
+        "keyword": "MEANSHR",
+        "ks": 0.128,
+        "physics": "mean magnetic shear angle"
+      },
+      {
+        "keyword": "SHRGT45",
+        "ks": 0.117,
+        "physics": "fraction of field sheared beyond 45\u00b0"
+      },
+      {
+        "keyword": "R_VALUE",
+        "ks": 0.111,
+        "physics": "unsigned flux near polarity-inversion lines (Schrijver's R) \u2014 classic flare precursor"
+      },
+      {
+        "keyword": "MEANPOT",
+        "ks": 0.091,
+        "physics": ""
+      },
+      {
+        "keyword": "TOTUSJZ",
+        "ks": 0.085,
+        "physics": "total unsigned vertical current"
+      },
+      {
+        "keyword": "MEANGBT",
+        "ks": 0.084,
+        "physics": ""
+      },
+      {
+        "keyword": "MEANALP",
+        "ks": 0.083,
+        "physics": ""
+      },
+      {
+        "keyword": "MEANGBH",
+        "ks": 0.081,
+        "physics": ""
+      },
+      {
+        "keyword": "MEANGBZ",
+        "ks": 0.078,
+        "physics": ""
+      },
+      {
+        "keyword": "TOTPOT",
+        "ks": 0.076,
+        "physics": "proxy for total photospheric magnetic free energy"
+      },
+      {
+        "keyword": "ABSNJZH",
+        "ks": 0.075,
+        "physics": "absolute net current helicity"
+      },
+      {
+        "keyword": "TOTUSJH",
+        "ks": 0.075,
+        "physics": "total unsigned current helicity \u2014 a top predictor in Bobra & Couvidat (2015)"
+      },
+      {
+        "keyword": "MEANJZH",
+        "ks": 0.072,
+        "physics": ""
+      },
+      {
+        "keyword": "USFLUX",
+        "ks": 0.067,
+        "physics": "total unsigned magnetic flux (region size \u00d7 field strength)"
+      },
+      {
+        "keyword": "MEANGAM",
+        "ks": 0.062,
+        "physics": "mean inclination angle"
+      },
+      {
+        "keyword": "SAVNCPP",
+        "ks": 0.06,
+        "physics": "sum of |net current| per polarity"
+      },
+      {
+        "keyword": "MEANJZD",
+        "ks": 0.048,
+        "physics": ""
+      }
+    ]
+  },
+  "model_divergence": {
+    "note": "importance measured on the SAME operational windows for both models (roc_auc drop when a feature is permuted; keyword rollup sums its 7 summary stats)",
+    "n_windows_used": 4000,
+    "top_keywords": {
+      "Benchmark-trained": [
+        {
+          "keyword": "TOTUSJH",
+          "importance": 0.01981,
+          "physics": "total unsigned current helicity \u2014 a top predictor in Bobra & Couvidat (2015)"
+        },
+        {
+          "keyword": "TOTUSJZ",
+          "importance": 0.01046,
+          "physics": "total unsigned vertical current"
+        },
+        {
+          "keyword": "USFLUX",
+          "importance": 0.0086,
+          "physics": "total unsigned magnetic flux (region size \u00d7 field strength)"
+        },
+        {
+          "keyword": "R_VALUE",
+          "importance": 0.00677,
+          "physics": "unsigned flux near polarity-inversion lines (Schrijver's R) \u2014 classic flare precursor"
+        },
+        {
+          "keyword": "TOTPOT",
+          "importance": 0.00439,
+          "physics": "proxy for total photospheric magnetic free energy"
+        },
+        {
+          "keyword": "SAVNCPP",
+          "importance": 0.00326,
+          "physics": "sum of |net current| per polarity"
+        },
+        {
+          "keyword": "ABSNJZH",
+          "importance": 0.00326,
+          "physics": "absolute net current helicity"
+        },
+        {
+          "keyword": "MEANGBH",
+          "importance": 0.00252,
+          "physics": ""
+        }
+      ],
+      "Live-trained": [
+        {
+          "keyword": "ABSNJZH",
+          "importance": 0.00925,
+          "physics": "absolute net current helicity"
+        },
+        {
+          "keyword": "TOTUSJZ",
+          "importance": 0.00593,
+          "physics": "total unsigned vertical current"
+        },
+        {
+          "keyword": "SAVNCPP",
+          "importance": 0.0057,
+          "physics": "sum of |net current| per polarity"
+        },
+        {
+          "keyword": "TOTUSJH",
+          "importance": 0.00394,
+          "physics": "total unsigned current helicity \u2014 a top predictor in Bobra & Couvidat (2015)"
+        },
+        {
+          "keyword": "MEANJZD",
+          "importance": -0.00011,
+          "physics": ""
+        },
+        {
+          "keyword": "MEANGBH",
+          "importance": -0.00138,
+          "physics": ""
+        },
+        {
+          "keyword": "USFLUX",
+          "importance": -0.00237,
+          "physics": "total unsigned magnetic flux (region size \u00d7 field strength)"
+        },
+        {
+          "keyword": "R_VALUE",
+          "importance": -0.00267,
+          "physics": "unsigned flux near polarity-inversion lines (Schrijver's R) \u2014 classic flare precursor"
+        }
+      ]
+    },
+    "spearman_rank_correlation": 0.158,
+    "reading": "rank correlation near 1 = both models learned the same physics; low correlation = at least one model leans on dataset-specific shortcuts that do not transfer."
+  }
+}
