@@ -171,7 +171,56 @@ compound the effect.
 
 ---
 
-## 7. Correction — Training and Calibrating on Live Data *(in progress)*
+## 7. The Accuracy Illusion — A Demonstration
+
+A recurring practice in flare-forecasting reports is to headline **accuracy**,
+often 90–99%, on curated or class-balanced data. We show that such figures can
+certify *nothing* about a model's skill, because a **zero-skill model attains
+them trivially — and, on realistic data, even outscores a genuinely skilful
+model on accuracy.**
+
+**The exact relationship.** A constant "no-flare" predictor never raises an alarm:
+its recall is 0 and its false-alarm rate is 0, so its **TSS = 0** (no skill by
+definition). Its accuracy, however, is exactly
+
+    accuracy(always "no-flare") = 1 − base_rate.
+
+Because M+ flares are rare, this trivial model scores extremely high accuracy:
+
+| Base rate of flares | Accuracy of the zero-skill model | TSS |
+|---|---:|---:|
+| 1% | **99.0%** | 0 |
+| 2% | 98.0% | 0 |
+| 4.25% (our 2014 Q1 live set) | **95.75%** | 0 |
+| 50% (a *balanced* test set) | 50.0% | 0 |
+
+Two consequences follow. **First**, a reported "99% accuracy" for
+flare-vs-no-flare is exactly what a do-nothing model achieves at a ~1% base rate;
+the number is therefore consistent with *zero* skill and conveys no information
+about it unless the base rate and a skill metric are also given. High accuracy on
+*balanced* data (where the trivial model scores only 50%) is not degenerate in the
+same way, but it also does not transfer to operational base rates — the setting
+that actually matters.
+
+**Second, and more striking: on realistic data, chasing accuracy penalizes
+skill.** Any model that actually catches flares must raise alarms, and at a low
+base rate most alarms are false — which *lowers* accuracy. On our real 2014 Q1
+live test (3,503 windows, 149 flares, 4.25% base rate):
+
+| Model | Catches flares? | TSS | Accuracy |
+|---|---|---:|---:|
+| Always "no-flare" (zero skill) | No (0% of flares) | 0.00 | **95.75%** |
+| Our model @ high-recall | Yes (86% of flares) | **0.64** | ≈78% |
+
+The **useless model beats the useful one by ~18 accuracy points.** A judge or
+practitioner ranking by accuracy would select the model that predicts nothing.
+This is the core reason the field uses TSS/HSS rather than accuracy, and it is a
+concrete illustration of how accuracy-based benchmarks overstate — or entirely
+misrepresent — operational value.
+
+---
+
+## 8. Correction — Training and Calibrating on Live Data *(in progress)*
 
 Planned experiment: recalibrate thresholds (and isotonic-calibrate probabilities)
 on a live-JSOC *validation* period, then measure live TSS on a separate held-out
@@ -182,7 +231,7 @@ threshold, at improved precision.
 
 ---
 
-## 8. Limitations
+## 9. Limitations
 
 - Results to date cover a **single** 3-month period (2014 Q1); the gap must be
   confirmed across multiple solar-cycle phases.
@@ -192,7 +241,7 @@ threshold, at improved precision.
 
 ---
 
-## 9. Conclusion *(preliminary)*
+## 10. Conclusion *(preliminary)*
 
 A SHARP-based flare model reporting TSS 0.77 on the SWAN-SF benchmark achieves
 TSS 0.35 on out-of-sample live satellite data at its default operating point — a
