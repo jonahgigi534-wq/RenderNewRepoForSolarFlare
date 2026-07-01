@@ -3,6 +3,8 @@
 **Benchmark or Reality? Quantifying the Operational Skill Gap in Machine-Learning
 Solar-Flare Forecasting**
 
+*Jonathan Gigi, Alfred Antony, Aidan George — Cypress Woods High School*
+
 Machine-learning solar-flare forecasts are evaluated on curated benchmarks
 and routinely report high skill, often 90–99% accuracy. Whether those scores
 reflect real-time operational performance — on the raw satellite data a deployed

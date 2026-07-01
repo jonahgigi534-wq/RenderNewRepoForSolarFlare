@@ -12,7 +12,8 @@ Machine-Learning Solar-Flare Forecasting
 **Subtitle / one-line takeaway (large, under the title):**
 > *Benchmark scores overstate real solar-flare forecasting skill by up to 2× — and retraining can't fix it.*
 
-Author name(s), school, category (Physics & Astronomy).
+Jonathan Gigi, Alfred Antony, Aidan George — Cypress Woods High School ·
+Physics & Astronomy (team project).
 
 ---
 

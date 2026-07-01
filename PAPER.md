@@ -1,6 +1,6 @@
 # Benchmark or Reality? Quantifying the Operational Skill Gap in Machine-Learning Solar-Flare Forecasting
 
-**Authors:** [Author name(s)], [School / Affiliation]
+**Authors:** Jonathan Gigi, Alfred Antony, Aidan George — Cypress Woods High School
 **Category:** Physics & Astronomy
 **Status:** Working draft. All four experiments are complete; remaining items are
 final citations, the scorecard regeneration with validation-selected thresholds,
