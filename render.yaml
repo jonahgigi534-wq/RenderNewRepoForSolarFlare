@@ -1,0 +1,25 @@
+# Render Blueprint — deploys the whole Helios app (FastAPI serves both the API and
+# the frontend dashboard) as a single web service.
+#
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repo. Render reads this
+# file and configures everything. The trained models ship via Git LFS (see
+# .gitattributes); Render fetches LFS objects automatically at build.
+#
+# MEMORY NOTE: loading the SWAN-SF (76MB) + JSOC (39MB) models together can exceed
+# the 512MB free tier and OOM. If the service restarts under load, bump `plan` to
+# `starter` (more RAM). Storm model is tiny.
+services:
+  - type: web
+    name: helios-solar-flare
+    runtime: python
+    plan: free                # -> change to `starter` if the models OOM the free tier
+    region: oregon            # pick the region closest to you
+    buildCommand: pip install -r requirements-server.txt
+    startCommand: uvicorn api.server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true          # redeploy automatically on every push to main
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      # Optional: set SMTP_PASSWORD in the Render dashboard (not here) to switch the
+      # email notifier from dry-run to live. Left unset = safe dry-run.

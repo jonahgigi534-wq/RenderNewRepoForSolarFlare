@@ -1,0 +1,23 @@
+# Serving-only dependencies for the Render web deployment.
+# Excludes training/download-only libs (lightgbm, xgboost, gdown) — they are
+# imported lazily and never needed to SERVE. Keeps the build small and reliable.
+#
+# scikit-learn is pinned to the version the shipped models were trained with, so
+# the LFS model artifacts unpickle cleanly (avoid version-mismatch warnings/errors).
+
+numpy==2.5.0
+pandas==3.0.3
+scikit-learn==1.9.0
+joblib==1.5.3
+pyyaml>=6.0
+
+# Live data + API
+requests>=2.31
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# Live-SHARP: JSOC client so the /api/sharp_live track can fetch magnetic data.
+drms>=0.7
+
+# Experiments (STEP 7): the live "skill vs lead time" figure regenerates on demand.
+matplotlib>=3.8
