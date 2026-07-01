@@ -190,7 +190,10 @@ common practices in the broader literature that compound the effect.
 1. **Evaluation-set distribution shift.** The curated, cleaned SWAN-SF *test*
    partition is systematically easier than raw operational JSOC data — so the same
    model scores higher on the benchmark test than in operation regardless of how it
-   was trained (Section 8). This is the dominant contributor to the observed gap.
+   was trained (Section 8). Direct evidence: all 17 SHARP features shift
+   significantly between the benchmark era and the operational year (median KS
+   D = 0.19), and operational data carries ~2% missing values the benchmark imputes
+   away (Section 9). This is the dominant contributor to the observed gap.
 2. **Non-transferable calibration.** Decision thresholds fit on benchmark data
    sit incorrectly on the live distribution, collapsing recall (0.805 → 0.416
    here) and producing the large *fixed-threshold* gap in Section 5.
@@ -305,7 +308,41 @@ limitation and does not affect the sign of either finding.
 
 ---
 
-## 9. Limitations
+## 9. Diagnosing the Shift — Feature Distributions
+
+To characterize the distribution shift underlying the gap, we compared the raw
+JSOC distributions of all 17 SHARP parameters between the benchmark training era
+(February 2011; 17,950 records) and the operational year (February 2015; 44,175
+records) using two-sample Kolmogorov–Smirnov tests.
+
+- **All 17/17 features are significantly shifted** (p < 0.05; most p ≈ 0), median
+  KS D = 0.19 — a pervasive, moderate distribution shift between the era the model
+  learned and operational data.
+- **Largest shifts are in extensive / free-energy proxies** — MEANPOT (D = 0.27),
+  TOTPOT (0.26), TOTUSJH (0.24), USFLUX (0.24) — magnetic size/energy parameters
+  that track the active-region population and overall activity, which differ
+  between solar-cycle phases.
+- **Smallest shifts are in intensive per-pixel gradients/twist** — MEANALP (0.04),
+  MEANGBZ (0.04) — quantities less sensitive to region size.
+- **Operational data is messier:** the mean non-finite (missing/bad) rate is 2.1%
+  in 2015 (up to 3.7% for some parameters) vs. ~0.2% in 2011 — missing values the
+  SWAN-SF pipeline removes by KNN imputation (`FPCKNN` in the benchmark filenames)
+  but that a live system must handle.
+
+**Interpretation.** The magnetic-parameter distributions the model faces
+operationally differ significantly and pervasively from the benchmark era, and
+operational data carries missing values the benchmark scrubs — direct evidence for
+the distribution-shift mechanism (§6.1). The comparison is raw-to-raw across years,
+so it captures era/activity shift and raw-data messiness but does not by itself
+isolate the *curation* component (which would require the raw SWAN-SF source
+instances). Taken with Section 8 — where the gap persists regardless of training
+source — the evidence indicates the benchmark's curated test distribution is both
+cleaner and differently shaped than the operational stream, inflating reported
+skill.
+
+---
+
+## 10. Limitations
 
 - Each period is a single 3-month window; more windows per solar-cycle phase
   would tighten the estimates.
@@ -318,7 +355,7 @@ limitation and does not affect the sign of either finding.
 
 ---
 
-## 10. Conclusion
+## 11. Conclusion
 
 A SHARP-based flare model reporting TSS 0.77 on the SWAN-SF benchmark achieves
 live, out-of-sample TSS of only 0.35–0.64 at its default operating point across

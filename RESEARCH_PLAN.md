@@ -74,7 +74,11 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
       periods (benchmark above upper 95% CI). Gap is condition-dependent.
 - [x] Bootstrap 95% CIs on TSS (part of Exp 4) — DONE.
 - [x] Accuracy-illusion demonstration (zero-skill model vs accuracy) — DONE (paper §7).
-- [ ] Exp 2: feature-distribution comparison + KS-tests (diagnose distribution shift).
+- [x] **Exp 2: feature-distribution KS-tests — DONE.** Raw JSOC 2011 vs 2015: all
+      17/17 SHARP features significantly shifted (median KS D 0.19); operational
+      data has ~2% missing values vs ~0.2% in the benchmark era. Evidences the
+      distribution-shift mechanism. (TODO: obtain raw SWAN-SF tarballs to isolate
+      the curation component from the era component.)
 - [x] **Exp 3: 2×2 (benchmark- vs live-trained × benchmark vs operational test) — DONE.**
       Benchmarks overstate (gap 0.083 peak TSS); training on live data does NOT
       close the gap (H₁ᵦ refuted) → gap is an evaluation-set property. Reproducible
