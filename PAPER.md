@@ -2,8 +2,10 @@
 
 **Authors:** [Author name(s)], [School / Affiliation]
 **Category:** Physics & Astronomy
-**Status:** Working draft — evidence is being added incrementally. Sections marked
-*(in progress)* are not yet complete.
+**Status:** Working draft. All four experiments are complete; remaining items are
+final citations, the scorecard regeneration with validation-selected thresholds,
+and author details. Every result is reproducible from the scripts in
+[`research/`](research/README.md).
 
 ---
 
@@ -52,10 +54,11 @@ it would consume in deployment. This distinction — *benchmark* performance ver
 *operational* performance — is the subject of this paper.
 
 **Contribution.** We (i) quantify the gap between benchmark and live operational
-skill for a representative SHARP-based flare model, (ii) enumerate the mechanisms
-responsible for benchmark inflation, and (iii) *(in progress)* demonstrate that
-training and calibrating on operational data recovers a measurable fraction of
-the lost skill.
+skill for a representative SHARP-based flare model, (ii) enumerate and evidence
+the mechanisms responsible for benchmark inflation, and (iii) show via a
+controlled 2×2 experiment that *retraining* on operational data does **not**
+close the gap, while *recalibrating* the operating threshold on operational data
+recovers most of the lost skill.
 
 ---
 
@@ -120,11 +123,13 @@ same way the deployed system operates: SHARP keyword time series are pulled
 directly from JSOC (`hmi.sharp_cea_720s`), and M+ flare labels with active-region
 associations are pulled from NOAA's GOES event list via the HEK API. Records are
 sliced into the identical 12 h windows and passed through the identical feature
-transform used in training and live inference. The test period (2014 Q1) begins
-~22 months after the training data ends, making it strictly out-of-sample.
+transform used in training and live inference. All three test periods (2014,
+2015, 2023) begin at least ~22 months after the training data ends, making them
+strictly out-of-sample.
 
 **Metrics.** TSS (primary), HSS, recall, precision, evaluated at each operating
-point. *(Bootstrap confidence intervals in progress.)*
+point, with percentile-bootstrap 95% confidence intervals on TSS (n = 1,000
+resamples, fixed seed).
 
 ---
 

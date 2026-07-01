@@ -1,18 +1,27 @@
-# Helios — AI Solar Flare Predictor
+# Helios — AI Solar Flare Predictor & an Honest-Evaluation Study
 
-A live, self-training solar-flare forecasting system. It learns from the
-**SWAN-SF** magnetic-field dataset, classifies what the Sun is doing **right
-now** from live NOAA data, and forecasts flare probability at **12 / 24 / 48 h**
-lead times — with an escalating warning for X-class events. Ships with a
-polished web **forecast page**.
+A live solar-flare forecasting system **and the instrument for a research
+finding**: *standard benchmark scores overstate the real-time operational skill
+of ML flare forecasts — by up to 2×.* Helios learns from SHARP magnetic-field
+data, classifies what the Sun is doing **right now** from live NOAA data, and
+forecasts flare probability at **12 / 24 / 48 h** lead times — with an
+escalating warning for X-class events. Ships with a polished web forecast page.
 
-> **Model status:** a model bake-off (HistGB, RandomForest, ExtraTrees and
-> Logistic, plus LightGBM & XGBoost when those optional libraries are installed)
-> picks the best on a held-out validation
-> partition. On the real SWAN-SF M-class task **ExtraTrees wins**, scoring
-> **TSS 0.870** (recall 0.93) on the clean test partition at the *balanced*
-> operating point. Three selectable operating points trade recall for
-> precision — see [Operating points](#operating-points-recall-vs-precision).
+> **The research result** ([PAPER.md](PAPER.md) · [abstract](ABSTRACT.md) ·
+> [reproduce it](research/README.md)): a model scoring **TSS 0.77** on the
+> SWAN-SF benchmark drops to **TSS 0.35–0.64** on live out-of-sample JSOC data
+> across three solar-cycle phases — the benchmark exceeds the upper 95% CI of
+> live skill in every period. A controlled 2×2 shows **retraining on live data
+> does not close the gap** (it is a property of the benchmark's evaluation set);
+> **recalibrating the threshold on operational data recovers most of the skill.**
+> Every benchmark number below should be read with that caveat — that is the
+> point of the paper.
+
+> **Deployed models:** live SHARP (JSOC-trained **RandomForest**, benchmark TSS
+> 0.77 / honest live TSS 0.35–0.64 by period), the SWAN-SF benchmark model
+> (ExtraTrees, benchmark TSS 0.87), and an OMNI-trained geomagnetic-storm model
+> (TSS 0.47). Three selectable operating points trade recall for precision —
+> see [Operating points](#operating-points-recall-vs-precision).
 
 ---
 
