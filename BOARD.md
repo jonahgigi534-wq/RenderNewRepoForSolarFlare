@@ -49,6 +49,11 @@ The benchmark beats the upper CI in every period.*
 Caption: *Training on live data does NOT close the gap → the overstatement is in
 the benchmark's test set, not the training data.*
 
+**FIG 7 — the fix works** *(the closer)*
+Caption: *A threshold recalibrated on 2014 and frozen beats the benchmark-tuned
+default on unseen 2015 (+0.19) and 2023 (+0.33) — CIs don't overlap. Recalibration
+recovers the skill that retraining can't.*
+
 **FIG 4 — the accuracy illusion**
 Caption: *A zero-skill "always no-flare" model scores 96% accuracy (99% at a 1%
 base rate) with zero skill — and beats a real model on accuracy. Accuracy lies.*
@@ -56,6 +61,7 @@ base rate) with zero skill — and beats a real model on accuracy. Accuracy lies
 **Headline results box** *(bold, boxed)*
 - Benchmark overstates operational skill by **up to 2×** (H₀ rejected, all periods).
 - Retraining on live data **does not** close the gap (H₁ᵦ **refuted**).
+- **Recalibrating on live data DOES** — validated on unseen years (+0.19/+0.33 TSS).
 - The gap is **condition-dependent** (largest at solar max).
 
 ---
@@ -83,8 +89,8 @@ on live data, and extend to CMEs and geomagnetic storms.
 ---
 
 ## Figure usage
-- **Headliners (must be on the board):** Fig 1, Fig 2, Fig 4.
-- **Support:** Fig 3, Fig 5. (Fig 6 / PCA only if space allows.)
+- **Headliners (must be on the board):** Fig 1, Fig 2, Fig 7.
+- **Support:** Fig 3, Fig 4, Fig 5. (Fig 6 / PCA only if space allows.)
 - Print figures large enough to read titles from ~3 ft.
 
 ## Design tips

@@ -84,7 +84,12 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
       close the gap (H₁ᵦ refuted) → gap is an evaluation-set property. Reproducible
       via `python -m solarflare.scorecard`. (TODO: choose peak-TSS threshold on a
       validation split, not the test set, to remove mild optimism.)
-- [ ] Exp 4 (remainder): more windows per phase to tighten CIs.
+- [x] **Exp 4 (the validated fix) — DONE.** Threshold recalibrated on live 2014,
+      frozen, tested on unseen 2015/2023: TSS 0.64→0.835 and 0.33→0.66, CIs
+      non-overlapping in both. Recalibration is a validated deployable correction
+      (`research/exp4_recalibration.py`, Fig 7, paper §8).
+- [ ] More windows per phase to tighten CIs further (optional).
+- [ ] Replicate the gap on a second model family (LightGBM) — generalizability.
 - [x] **Physics interpretation — DONE.** RF feature importance: top 5 params
       (TOTUSJH, TOTUSJZ, R_VALUE, USFLUX, TOTPOT) = 72% of decisions. PCA: PC1 = 33%
       (AR size/energy axis). Key insight: most-important features = most-shifted

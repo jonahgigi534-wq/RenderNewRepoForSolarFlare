@@ -119,4 +119,31 @@ l1, n1 = ax.get_legend_handles_labels(); l2, n2 = ax2.get_legend_handles_labels(
 ax.legend(l1 + l2, n1 + n2, loc="center right")
 fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig6_pca_scree.png")); plt.close(fig)
 
-print("wrote fig1-6 to", FIGURES)
+# ---------- Fig 7: Exp 4 — the validated recalibration fix ----------
+rc_path = os.path.join(RESULTS, "recalibration.json")
+if os.path.exists(rc_path):
+    rc = json.load(open(rc_path))
+    tests = [("2015_declining", "2015 (unseen)"), ("2023_rising_max", "2023 (unseen)")]
+    labels = [t[1] for t in tests]
+    dflt = [rc["tests"][t[0]]["default"] for t in tests]
+    recal = [rc["tests"][t[0]]["recalibrated"] for t in tests]
+    x = np.arange(len(labels)); w = 0.36
+    fig, ax = plt.subplots(figsize=(7.2, 4.4))
+    ax.axhline(BENCH_TSS, ls="--", color=C_BENCH, lw=2, label=f"benchmark score ({BENCH_TSS})")
+    b1 = ax.bar(x - w/2, [r["tss"] for r in dflt], w, yerr=err(dflt), capsize=4,
+                color="#adb5bd", label=f"default threshold ({rc['default_threshold']})")
+    b2 = ax.bar(x + w/2, [r["tss"] for r in recal], w, yerr=err(recal), capsize=4,
+                color=C_LIVE, label=f"recalibrated on 2014, frozen ({rc['recalibrated_threshold']})")
+    for i in range(len(labels)):
+        gain = recal[i]["tss"] - dflt[i]["tss"]
+        ax.annotate(f"+{gain:.2f}", (x[i] + w/2 + w * 0.62, recal[i]["tss"] / 2),
+                    ha="left", color="#2b8a3e", fontweight="bold", fontsize=12)
+    ax.set_xticks(x); ax.set_xticklabels(labels); ax.set_ylabel("live TSS")
+    ax.set_ylim(0, 1.05)
+    ax.set_title("The fix works: a threshold recalibrated on 2014 transfers to unseen years")
+    ax.legend(loc="lower right", framealpha=0.95)
+    ax.bar_label(b1, fmt="%.2f", padding=2); ax.bar_label(b2, fmt="%.2f", padding=2)
+    fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig7_recalibration_fix.png")); plt.close(fig)
+    print("wrote fig7")
+
+print("wrote figures to", FIGURES)

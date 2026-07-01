@@ -316,6 +316,27 @@ is the *threshold*. Re-selecting the operating point recovers most of the real-w
 skill, whereas retraining on live data does not (operational TSS 0.822 → 0.799).
 The actionable fix is **recalibration on operational data**, not more training data.
 
+**The fix, validated out-of-sample.** To rule out hindsight, we tested
+recalibration as a deployable *procedure* (`research/exp4_recalibration.py`): the
+decision threshold was re-selected on live 2014 Q1 only (0.035, vs. the
+benchmark-tuned default 0.104), **frozen**, and then evaluated on two periods it
+never saw:
+
+| Unseen period | TSS @ default 0.104 | TSS @ frozen recalibrated 0.035 | Gain |
+|---|---:|---:|---:|
+| 2015 (declining) | 0.641 [0.53–0.75] | **0.835 [0.77–0.89]** | +0.19 |
+| 2023 (rising max) | 0.334 [0.17–0.52] | **0.661 [0.54–0.76]** | +0.33 |
+
+The bootstrap 95% CIs do not overlap in either period — the transferred threshold
+significantly beats the benchmark-tuned default on data years removed from its
+calibration period, and on 2015 the recalibrated *live* skill (0.835) exceeds the
+model's own *benchmark* score (0.77). The trade-off is explicit: the recalibrated
+point is recall-heavy (2015: recall 0.93 at precision 0.20, vs. 0.67/0.41 at the
+default), so operators trade more false alarms for far fewer missed flares.
+Operational recalibration is thus a validated, deployable correction — completing
+the answer to the research question: benchmarks overstate, retraining does not
+help, **recalibration does.**
+
 **Metric note.** The numbers above use *peak TSS* (threshold maximised per test
 set), which is mildly optimistic because it peeks at test labels. The scorecard
 code has since been corrected to select the threshold on a held-out **validation**
@@ -433,6 +454,7 @@ All figures are in `figures/` and reproducible from the experiment scripts.
 - **Figure 4** (`fig4_accuracy_illusion.png`) — A zero-skill model "wins" on accuracy (§7).
 - **Figure 5** (`fig5_feature_importance.png`) — RandomForest feature importance per SHARP parameter (§10).
 - **Figure 6** (`fig6_pca_scree.png`) — PCA scree; PC1 = active-region size/energy axis (§10).
+- **Figure 7** (`fig7_recalibration_fix.png`) — The validated fix: a threshold frozen on 2014 beats the default on unseen 2015/2023 (§8).
 
 ---
 
