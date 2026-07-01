@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-01T01:28:50.218359+00:00",
+  "generated_at": "2026-07-01T07:32:13.271096+00:00",
   "target": "daily peak Kp >= 5 (G1+ storm)",
   "protocol": "chronological train/test split with gap; thresholds fit on train, scored on test",
   "test_days": 1314,

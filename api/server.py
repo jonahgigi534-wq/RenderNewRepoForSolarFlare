@@ -111,6 +111,16 @@ def sharp_live_endpoint(at: str = Query("", description="optional ISO-8601 UTC t
     return JSONResponse(sl.predict_live(cfg, at_time=at_time))
 
 
+@app.get("/api/scorecard")
+def scorecard_endpoint():
+    """Model Skill Scorecard — benchmark vs. real operational TSS (the research result;
+    built by `python -m solarflare.scorecard`)."""
+    p = os.path.join(cfg["_project_root"], "skill_scorecard.json")
+    if os.path.exists(p):
+        return FileResponse(p, media_type="application/json", headers={"Cache-Control": "no-store"})
+    return JSONResponse({"available": False, "note": "run: python -m solarflare.scorecard"}, status_code=404)
+
+
 @app.get("/api/impact")
 def impact_endpoint():
     """Plain-language R/S/G space-weather impact statements (STEP 8)."""

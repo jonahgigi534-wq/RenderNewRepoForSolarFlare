@@ -96,7 +96,7 @@ def time_group_split(groups, end_times, frac: dict):
             np.array(idx_te, dtype=int))
 
 
-def train(data_path: str, cfg: dict | None = None) -> dict:
+def train(data_path: str, cfg: dict | None = None, save: bool = True) -> dict:
     cfg = cfg or load_config()
     sl = cfg["sharp_live"]
     sel = sl["selection_metric"]
@@ -176,13 +176,14 @@ def train(data_path: str, cfg: dict | None = None) -> dict:
         "sklearn_version": __import__("sklearn").__version__,
         "version": __import__("solarflare").__version__,
     }
-    out = sl.get("model_path", "models/flare_sharp_live_model.joblib")
-    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
-    joblib.dump(payload, out)
-    meta = {k: v for k, v in payload.items() if k != "model"}
-    with open(out.replace(".joblib", ".meta.json"), "w", encoding="utf-8") as fh:
-        json.dump(meta, fh, indent=2, default=str)
-    print(f"\nSaved live SHARP model -> {out} (+ .meta.json)")
+    if save:
+        out = sl.get("model_path", "models/flare_sharp_live_model.joblib")
+        os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+        joblib.dump(payload, out)
+        meta = {k: v for k, v in payload.items() if k != "model"}
+        with open(out.replace(".joblib", ".meta.json"), "w", encoding="utf-8") as fh:
+            json.dump(meta, fh, indent=2, default=str)
+        print(f"\nSaved live SHARP model -> {out} (+ .meta.json)")
     return payload
 
 

@@ -485,6 +485,17 @@
     </table>
   </div>
 
+  <!-- Model Skill Scorecard (the research result: benchmark vs. operational skill) -->
+  <div class="section-title"><h2>Model skill scorecard</h2><span class="sub">Benchmark score vs. real operational skill — the honest number</span></div>
+  <div class="card" id="scorecard-card">
+    <p class="map-caption" id="scorecard-note">—</p>
+    <table class="tracks" id="scorecard-table" hidden aria-label="Benchmark vs operational skill">
+      <thead><tr><th>Model</th><th style="text-align:right">Benchmark TSS</th><th style="text-align:right">Real operational TSS</th><th style="text-align:right">Overstatement</th></tr></thead>
+      <tbody id="scorecard-body"></tbody>
+    </table>
+    <p class="map-caption" id="scorecard-finding">—</p>
+  </div>
+
   <!-- Live SHARP ML model (our own JSOC-trained per-region flare model) -->
   <div class="section-title"><h2>Live SHARP model</h2><span class="sub">Per-region P(M+) from JSOC magnetic data · our own ML</span></div>
   <div class="card" id="sharp-card">
@@ -607,6 +618,7 @@ async function loadAll(){
     loadImpact();         // STEP 8 plain-language impacts; non-fatal
     loadAlerts();         // STEP 8 threshold alerts; non-fatal
     loadNotify();         // email-notifier status line; non-fatal
+    loadScorecard();      // model skill scorecard: benchmark vs operational (research result); non-fatal
     loadSharpLive();      // live SHARP per-region ML forecast (our JSOC-trained model); non-fatal
     if(mapMode==='3d' && satEnabled) loadSatellites(satScope);  // refresh sat risk vs current flare
   } catch(e){
@@ -1055,6 +1067,28 @@ async function loadNotify(){
       el2.hidden=false;
     }
   }catch(e){ /* optional */ }
+}
+
+async function loadScorecard(){
+  const card=document.getElementById('scorecard-card'); if(!card) return;
+  try{
+    const r=await fetch(API_BASE+'/api/scorecard',{cache:'no-store'}); if(!r.ok) return;
+    const j=await r.json(); const ts=j.test_sets||{};
+    document.getElementById('scorecard-note').innerHTML='<span class="muted">'+escapeHtml(j.metric||'')+
+      '<br>benchmark test: '+escapeHtml(ts.benchmark||'')+' · operational test: '+escapeHtml(ts.operational||'')+'</span>';
+    document.getElementById('scorecard-body').innerHTML=(j.models||[]).map(m=>
+      '<tr><td>'+escapeHtml(m.name)+' <span class="muted">· '+escapeHtml(m.detail)+'</span></td>'+
+      '<td class="num">'+Number(m.benchmark_tss).toFixed(2)+'</td>'+
+      '<td class="num"><b>'+Number(m.operational_tss).toFixed(2)+'</b></td>'+
+      '<td class="num" style="color:var(--x-class)">▼ '+Math.abs(Number(m.gap)).toFixed(2)+'</td></tr>'
+    ).join('');
+    document.getElementById('scorecard-table').hidden=false;
+    const f=j.findings||{};
+    document.getElementById('scorecard-finding').innerHTML='<b>Finding:</b> benchmark scores <b>'+
+      (f.benchmarks_overstate?'overstate':'match')+'</b> real operational skill'+
+      (f.benchmarks_overstate?(' by ~'+Number(f.overstatement_gap).toFixed(2)+' TSS'):'')+
+      '; training on live data <b>'+(f.live_training_closes_gap?'closes':'does NOT close')+'</b> the gap.';
+  }catch(e){/* optional */}
 }
 
 async function loadSharpLive(atISO){

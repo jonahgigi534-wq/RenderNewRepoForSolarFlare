@@ -1,7 +1,7 @@
 id,kind,issued_ct,forecast_threshold,p_alert,p_M_24h,p_X_24h,expected_class,current_class_at_issue,window_h,verify_after_ct,status,actual_peak_class,actual_peak_flux_wm2,outcome,verified_ct,alert_email,followup,predicted_peak_class,predicted_peak_flux_wm2,err_dex,persistence_err_dex,climatology_err_dex,beat_persistence,beat_climatology
 1,daily,2026-06-27 22:15 CDT,M,0.4407,0.4407,0.0178,C-M,C2.0,24,2026-06-28 22:15 CDT,verified,C9.5,9.539588063489646e-06,MISS,2026-06-28 22:18 CDT,n/a,logged,,,,,,,
 2,daily,2026-06-28 19:18 CDT,M,0.4558,0.4558,0.0178,C-M,C2.0,24,2026-06-29 19:18 CDT,verified,M1.4,1.4717287740495522e-05,HIT,2026-06-29 22:39 CDT,n/a,logged,,,,,,,
-3,alert,2026-06-29 22:39 CDT,M,0.7476,0.7476,0.3822,M,C2.5,24,2026-06-30 22:39 CDT,pending,,,pending,,dry-run,,M5.1,5.1460262744011395e-05,,,,,
-4,daily,2026-06-29 22:39 CDT,M,0.7476,0.7476,0.3822,M,C2.5,24,2026-06-30 22:39 CDT,pending,,,pending,,n/a,,M5.1,5.1460262744011395e-05,,,,,
+3,alert,2026-06-29 22:39 CDT,M,0.7476,0.7476,0.3822,M,C2.5,24,2026-06-30 22:39 CDT,verified,X1.1,0.00011094788351329044,HIT,2026-06-30 22:59 CDT,dry-run,dry-run,M5.1,5.1460262744011395e-05,0.334,0.877,1.568,yes,yes
+4,daily,2026-06-29 22:39 CDT,M,0.7476,0.7476,0.3822,M,C2.5,24,2026-06-30 22:39 CDT,verified,X1.1,0.00011094788351329044,HIT,2026-06-30 22:59 CDT,n/a,logged,M5.1,5.1460262744011395e-05,0.334,0.877,1.568,yes,yes
 5,alert,2026-06-30 20:27 CDT,M,0.8533,0.8533,0.7561,X,C2.1,24,2026-07-01 20:27 CDT,pending,,,pending,,dry-run,,X1.4,0.0001425315199491781,,,,,
 6,daily,2026-06-30 20:27 CDT,M,0.8533,0.8533,0.7561,X,C2.1,24,2026-07-01 20:27 CDT,pending,,,pending,,n/a,,X1.4,0.0001425315199491781,,,,,

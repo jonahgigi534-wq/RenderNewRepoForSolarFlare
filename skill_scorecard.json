@@ -1,0 +1,29 @@
+{
+  "title": "Benchmark score vs. real operational skill",
+  "metric": "peak TSS (True Skill Statistic; higher is better, 0 = no skill)",
+  "test_sets": {
+    "benchmark": "held-out SWAN-SF magnetograms (14690 windows, 236 flares)",
+    "operational": "live JSOC 2015, an unseen year (12597 windows, 273 flares)"
+  },
+  "models": [
+    {
+      "name": "Benchmark-trained",
+      "detail": "SWAN-SF 2010-2012",
+      "benchmark_tss": 0.905,
+      "operational_tss": 0.822,
+      "gap": 0.083
+    },
+    {
+      "name": "Live-trained",
+      "detail": "JSOC live data (2014)",
+      "benchmark_tss": 0.914,
+      "operational_tss": 0.799,
+      "gap": 0.115
+    }
+  ],
+  "findings": {
+    "benchmarks_overstate": true,
+    "overstatement_gap": 0.083,
+    "live_training_closes_gap": false
+  }
+}
