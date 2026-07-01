@@ -283,28 +283,36 @@ misrepresent — operational value.
 ## 8. Does Training on Live Data Close the Gap? A 2×2 Experiment
 
 To test the second half of the research question, we ran a controlled 2×2:
-**two training sources** (benchmark SWAN-SF 2010–2012 vs. live JSOC 2014) ×
-**two test sets** (held-out SWAN-SF vs. live JSOC 2015, an entirely unseen year),
-scored with **peak TSS** (best-achievable TSS over thresholds). Both models were
-trained in memory; the deployed model was untouched. (Reproducible:
-`python -m solarflare.scorecard`.)
+**training sources** (benchmark SWAN-SF 2010–2012 vs. live JSOC) ×
+**test sets** (held-out SWAN-SF vs. live JSOC operational years). The hardened
+protocol scores **four** operational years (2013/2015/2016/2017), resamples with a
+**cluster bootstrap** over whole active regions (windows of one region are
+correlated; i.i.d. rows would give dishonestly narrow CIs), and reports both
+**peak TSS** (the threshold-free skill ceiling) and **frozen validation-tuned
+thresholds** (the deployment-faithful score). All models are trained in memory;
+the deployed model is untouched. (Reproducible: `python -m solarflare.reproduce`;
+full tables in RESULTS.md.)
 
-| Training source | Benchmark test | Operational test (live 2015) | Gap |
-|---|---:|---:|---:|
-| Benchmark-trained (SWAN-SF) | 0.905 | 0.822 | 0.083 |
-| Live-trained (JSOC 2014) | 0.914 | **0.799** | **0.115** |
+| Training source | Benchmark test | Operational (4-yr mean) | Gap (peak) | Gap (frozen) |
+|---|---:|---:|---:|---:|
+| Benchmark-trained (SWAN-SF) | 0.906 | 0.828 | **+0.078** [+0.006..+0.306] | +0.085 [+0.007..+0.309] |
+| Live-trained (JSOC 2014) | 0.914 | 0.804 | +0.109 [+0.041..+0.336] | +0.178 [−0.023..+0.500] |
+| Live-trained, multi-year (2011+12+14) | 0.928 | 0.882 | +0.046 [−0.027..+0.350] | +0.013 [−0.063..+0.305] |
 
-*Benchmark test: held-out SWAN-SF (14,690 windows, 236 flares). Operational test:
-live JSOC 2015 (12,597 windows, 273 flares). See Figure 2.*
+*Benchmark test: held-out SWAN-SF (14,690 windows, 236 flares). Operational
+test years: 2013/2015/2016/2017 (up to 13,431 windows per year). Brackets are
+cluster-bootstrap 95% CIs. See Figure 2.*
 
-**Result 1 — benchmarks overstate (H₁ first half: supported).** Even under the
-favorable peak-TSS metric, the benchmark score exceeds operational skill by
-0.083 TSS.
+**Result 1 — benchmarks overstate (H₁ first half: supported).** The
+benchmark-trained gap is positive in **every tested year**, and its 95% CI
+excludes zero under both the peak (+0.078) and frozen-threshold (+0.085) views.
 
-**Result 2 — live training does NOT close the gap (H₁ second half: refuted).**
-The live-trained model is *slightly worse* operationally (0.799 vs. 0.822) and
-has a *larger* benchmark–operational gap (0.115 vs. 0.083). Retraining on
-operational data did not recover skill.
+**Result 2 — single-year live training does NOT close the gap (H₁ second half:
+refuted).** The 2014-trained model is slightly worse operationally (0.804 vs.
+0.828) with a *larger* gap (+0.109). One refinement: training on **multiple**
+live years narrows the gap to +0.046, but the difference's CI includes zero —
+multi-year operational training *may* partially help, and is not statistically
+established.
 
 **Interpretation.** Because retraining on live data does not shrink the gap, the
 overstatement is not primarily a *training* distribution-shift artifact that
@@ -330,7 +338,7 @@ operational skill rises to **TSS ≈ 0.82** (peak; ≈0.79 mean under the regene
 frozen-threshold protocol across four years — see the robust regeneration below). The
 discriminative signal therefore largely survives operation — what fails to transfer
 is the *threshold*. Re-selecting the operating point recovers most of the real-world
-skill, whereas retraining on live data does not (operational TSS 0.822 → 0.799).
+skill, whereas retraining on live data does not (operational TSS 0.828 → 0.804).
 The actionable fix is **recalibration on operational data**, not more training data.
 
 **The fix, validated out-of-sample.** To rule out hindsight, we tested
@@ -354,21 +362,10 @@ Operational recalibration is thus a validated, deployable correction — complet
 the answer to the research question: benchmarks overstate, retraining does not
 help, **recalibration does.**
 
-**Robust regeneration (v2).** The scorecard has since been regenerated with a
-statistically hardened protocol (`python -m solarflare.reproduce`, RESULTS.md):
-**four** operational years (2013/2015/2016/2017), **cluster** bootstrap resampling
-whole active regions (windows of one region are correlated; i.i.d. resampling
-would understate uncertainty), and **frozen validation-tuned thresholds** alongside
-peak TSS. Both findings survive and sharpen: the benchmark-trained gap is
-**+0.078 peak (95% CI +0.006..+0.306) and +0.085 frozen (CI +0.007..+0.309)** —
-positive in every tested year — while single-year live training *widens* the gap
-(+0.109). One refinement emerges: training on **multiple** live years
-(2011+2012+2014) narrows the gap to +0.046, though the difference's CI includes
-zero — so multi-year operational training *may* partially help, but is not
-statistically established. The same protocol also reproduces the optimism on the
-**geomagnetic-storm model** (peak gap +0.165, CI +0.006..+0.372) — a different
-feature space and physical domain — indicating the effect is not a flare-model
-quirk.
+**It generalizes beyond flares.** The same hardened protocol reproduces the
+optimism on the **geomagnetic-storm model** (P(Kp≥5, 24 h) from L1 solar wind;
+peak gap +0.165, CI +0.006..+0.372, moving-block bootstrap) — a different feature
+space and physical domain — indicating the effect is not a flare-model quirk.
 
 ---
 
@@ -393,16 +390,38 @@ records) using two-sample Kolmogorov–Smirnov tests (Figure 3).
   SWAN-SF pipeline removes by KNN imputation (`FPCKNN` in the benchmark filenames)
   but that a live system must handle.
 
+**Decomposing the shift: era dominates curation.** A complementary comparison
+(`python -m solarflare.experiments.gap_diagnosis`) contrasts SWAN-SF's curated
+features against our HEK-built features **on the same windows**, isolating the
+curation component: median feature KS D = **0.055** (largest: MEANSHR__max,
+0.128). Set against the raw-to-raw across-era shift above (median D = **0.19**),
+the decomposition is clear — *curation itself perturbs the features only mildly;
+the dominant shift is era/activity drift plus operational messiness.* The
+benchmark's inflation therefore stems less from "cleaning" the data than from
+freezing it in one epoch of one solar cycle.
+
+**Negative control — the labels are not the problem.** Auditing SWAN-SF's flare
+labels against our independent HEK/SWPC labeler on the same windows gives
+**99.81% agreement** (positive-class Jaccard 0.93; confusion: 1,170 both-positive,
+84 SWAN-SF-only, 2 HEK-only). Label-protocol differences are ruled out as a
+mechanism for the gap — the disagreement is in the *feature distributions and
+calibration*, not the ground truth.
+
+**Shortcut learning.** The Spearman rank correlation between the benchmark-trained
+and live-trained models' feature importances is only **0.158**. If both models had
+learned the same physics, their importance rankings would agree; the low
+correlation indicates at least one model exploits dataset-specific shortcuts that
+do not transfer — consistent with the 2×2 result that neither training source
+eliminates the gap.
+
 **Interpretation.** The magnetic-parameter distributions the model faces
 operationally differ significantly and pervasively from the benchmark era, and
 operational data carries missing values the benchmark scrubs — direct evidence for
-the distribution-shift mechanism (§6.1). The comparison is raw-to-raw across years,
-so it captures era/activity shift and raw-data messiness but does not by itself
-isolate the *curation* component (which would require the raw SWAN-SF source
-instances). Taken with Section 8 — where the gap persists regardless of training
-source — the evidence indicates the benchmark's curated test distribution is both
-cleaner and differently shaped than the operational stream, inflating reported
-skill.
+the distribution-shift mechanism (§6.1), now decomposed (era ≫ curation), with
+labels excluded as a cause and shortcut learning implicated. Taken with Section 8 —
+where the gap persists regardless of training source — the evidence indicates the
+benchmark's test distribution is frozen in an unrepresentative epoch, inflating
+reported skill.
 
 ---
 
@@ -437,7 +456,40 @@ distributions differ most between the curated benchmark and live operation.
 
 ---
 
-## 11. Limitations
+## 11. Against the Official Standard — NOAA SWPC
+
+Finally, we benchmarked the deployed system against the **official NOAA SWPC
+forecast** — archived next-day Class-M probabilities from the Report of Solar
+Geophysical Activity (RSGA) — on identical days with identical ground truth (any
+M+ flare on the target day, HEK/SWPC). Our full-disk daily P(M+) combines the
+live-SHARP model's per-region probabilities as 1−∏(1−pᵢ). Brier score (a proper
+scoring rule) is primary; climatology scores Brier-skill 0.
+(`python -m solarflare.experiments.noaa_baseline`.)
+
+| Year | Forecaster | Brier ↓ | Brier skill vs. climatology | Peak TSS |
+|---|---|---:|---:|---:|
+| 2013 | NOAA official | 0.1341 | −0.068 | 0.402 |
+| 2013 | **Helios (deployed)** | **0.1142** | **+0.090** | **0.421** |
+| 2015 | NOAA official | 0.1320 | +0.084 | 0.445 |
+| 2015 | **Helios (deployed)** | **0.1264** | **+0.123** | **0.455** |
+| 2016 | **NOAA official** | **0.0236** | **+0.126** | **0.703** |
+| 2016 | Helios (deployed) | 0.0283 | −0.049 | 0.654 |
+| 2017 | **NOAA official** | **0.0281** | **+0.310** | **0.686** |
+| 2017 | Helios (deployed) | 0.0347 | +0.147 | 0.677 |
+
+The deployed system **beats the official forecast on Brier score in 2013 and
+2015** (solar-active years) and trails it in the quieter 2016–2017 — overall,
+trading blows with the operational standard. (Caveat: horizons are close but not
+identical — NOAA's probability covers calendar day D+1, ours a 24 h window ending
+intraday.) Two implications: (i) the honest live skill measured in this paper is
+not an artifact of a weak model — the same system is competitive with NOAA; and
+(ii) even the *official* forecast's skill (peak TSS 0.40–0.70) sits far below
+typical benchmark headline numbers, independently corroborating this paper's
+central claim.
+
+---
+
+## 12. Limitations
 
 - Each period is a single 3-month window; more windows per solar-cycle phase
   would tighten the estimates.
@@ -454,7 +506,7 @@ distributions differ most between the curated benchmark and live operation.
 
 ---
 
-## 12. Conclusion
+## 13. Conclusion
 
 A SHARP-based flare model reporting TSS 0.77 on the SWAN-SF benchmark achieves
 live, out-of-sample TSS of only 0.35–0.64 at its default operating point across
@@ -467,7 +519,10 @@ threshold **recalibrated** on one operational period and frozen recovers TSS to
 0.66–0.84 on unseen years. The gap **replicates on a second architecture**
 (LightGBM) and on a geomagnetic-storm model in a separate feature space, and it
 survives a hardened protocol (four operational years, cluster bootstrap, frozen
-thresholds). Together these results establish a reproducible method for honestly
+thresholds). The honestly-evaluated deployed system is nonetheless competitive
+with NOAA's official forecast — beating it on Brier score in two of four years —
+showing that honest evaluation and operational usefulness are compatible.
+Together these results establish a reproducible method for honestly
 evaluating operational solar-flare forecasts and caution that benchmark
 leaderboard scores must not be read as operational performance. The practical
 implication is that the community should benchmark on live-operational test

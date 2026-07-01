@@ -43,17 +43,21 @@ fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig1_multiperiod.png")); 
 
 # ---------- Fig 2: Exp 3 the 2x2 scorecard ----------
 models = sc["models"]
-names = [m["name"] for m in models]
+names = [m["name"].replace(" (multi-year)", "\n(multi-year)") for m in models]
 btss = [m["benchmark_tss"] for m in models]; otss = [m["operational_tss"] for m in models]
+n_years = len(models[0].get("operational_years_used", [])) or 1
+op_label = f"operational test ({n_years}-year mean)" if n_years > 1 else "operational test (live)"
 x = np.arange(len(names)); w = 0.36
-fig, ax = plt.subplots(figsize=(7.2, 4.4))
+fig, ax = plt.subplots(figsize=(7.6, 4.6))
 b1 = ax.bar(x - w/2, btss, w, color=C_BENCH, label="benchmark test")
-b2 = ax.bar(x + w/2, otss, w, color=C_LIVE, label="operational test (live 2015)")
+b2 = ax.bar(x + w/2, otss, w, color=C_LIVE, label=op_label)
 for i, m in enumerate(models):
-    ax.annotate(f"gap {m['gap']:.3f}", (x[i], max(btss[i], otss[i]) + 0.03), ha="center",
+    ax.annotate(f"gap {m['gap']:+.3f}", (x[i], 1.06), ha="center",
                 color=C_BAD, fontweight="bold")
-ax.set_xticks(x); ax.set_xticklabels(names); ax.set_ylabel(sc.get("metric", "TSS").split(" (")[0])
-ax.set_ylim(0, 1.05); ax.set_title("Training on live data does NOT close the gap")
+ax.set_xticks(x); ax.set_xticklabels(names)
+ax.set_ylabel(sc.get("metric", "TSS").split(" (")[0])
+ax.set_ylim(0, 1.16)
+ax.set_title("Retraining on live data does not close the gap\n(multi-year narrows it; difference n.s.)")
 ax.legend(loc="lower center"); ax.bar_label(b1, fmt="%.2f", padding=2); ax.bar_label(b2, fmt="%.2f", padding=2)
 fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig2_scorecard_2x2.png")); plt.close(fig)
 
