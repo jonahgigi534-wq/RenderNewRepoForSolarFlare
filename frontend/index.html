@@ -489,6 +489,11 @@
   <div class="section-title"><h2>Live SHARP model</h2><span class="sub">Per-region P(M+) from JSOC magnetic data · our own ML</span></div>
   <div class="card" id="sharp-card">
     <p class="map-caption" id="sharp-status">—</p>
+    <div style="margin:8px 0;font-size:13px">
+      <span style="color:var(--text-faint)">Test a past date (UTC):</span>
+      <input id="sharp-date" type="datetime-local" value="2014-10-24T12:00" min="2010-05-01T00:00" style="background:#0a1326;border:1px solid #24304a;color:var(--text);border-radius:6px;padding:3px 7px;width:200px">
+      <button onclick="loadSharpLive((document.getElementById('sharp-date').value||'').trim()||undefined)" style="background:#1b2942;border:1px solid #2c3d5e;color:var(--text);border-radius:6px;padding:3px 12px;cursor:pointer">Test</button>
+    </div>
     <table class="tracks" id="sharp-table" hidden aria-label="Live per-region SHARP flare probabilities">
       <thead><tr><th>Active region</th><th style="text-align:right">P(M+ 24h)</th><th style="text-align:right">Flag</th></tr></thead>
       <tbody id="sharp-body"></tbody>
@@ -1051,12 +1056,12 @@ async function loadNotify(){
   }catch(e){ /* optional */ }
 }
 
-async function loadSharpLive(){
+async function loadSharpLive(atISO){
   const card=document.getElementById('sharp-card'); if(!card) return;
   const statusEl=document.getElementById('sharp-status');
   const tbl=document.getElementById('sharp-table'), body=document.getElementById('sharp-body');
   try{
-    const r=await fetch(API_BASE+'/api/sharp_live',{cache:'no-store'});
+    const r=await fetch(API_BASE+'/api/sharp_live'+(atISO?'?at='+encodeURIComponent(atISO):''),{cache:'no-store'});
     if(!r.ok) throw 0; const j=await r.json();
     const tss=(j.test_tss!=null)?(' · test TSS '+Number(j.test_tss).toFixed(2)):'';
     if(!j.available){

@@ -104,6 +104,19 @@ def _parse(ts) -> datetime | None:
         return None
 
 
+def _to_ct(ts) -> str:
+    """Render a UTC timestamp in US Central time, DST-aware (shows CST or CDT).
+    Underlying data stays UTC; this is display-only for the spreadsheet."""
+    dt = _parse(ts)
+    if dt is None:
+        return str(ts) if ts else ""
+    try:
+        from zoneinfo import ZoneInfo
+        return dt.astimezone(ZoneInfo("America/Chicago")).strftime("%Y-%m-%d %H:%M %Z")
+    except Exception:                                     # noqa: BLE001 (fallback: raw UTC)
+        return str(ts)
+
+
 # ----------------------------------------------------------------------
 # Email (dry-run safe; no secrets in code)
 # ----------------------------------------------------------------------
@@ -509,10 +522,10 @@ def log_daily_forecast(cfg: dict, conn: sqlite3.Connection) -> dict:
 # ----------------------------------------------------------------------
 # Spreadsheet (CSV) export — full prediction history vs actual outcomes
 # ----------------------------------------------------------------------
-_CSV_COLS = ["id", "kind", "issued_utc", "forecast_threshold", "p_alert", "p_M_24h",
+_CSV_COLS = ["id", "kind", "issued_ct", "forecast_threshold", "p_alert", "p_M_24h",
              "p_X_24h", "expected_class", "current_class_at_issue", "window_h",
-             "verify_after_utc", "status", "actual_peak_class", "actual_peak_flux_wm2",
-             "outcome", "verified_utc", "alert_email", "followup",
+             "verify_after_ct", "status", "actual_peak_class", "actual_peak_flux_wm2",
+             "outcome", "verified_ct", "alert_email", "followup",
              # peak-magnitude forecast + honest log-flux grade
              "predicted_peak_class", "predicted_peak_flux_wm2", "err_dex",
              "persistence_err_dex", "climatology_err_dex",
@@ -532,14 +545,14 @@ def _row_record(r) -> dict:
     rd3 = lambda v: round(v, 3) if isinstance(v, (int, float)) else v
     outcome = "pending" if d.get("status") != "verified" else ("HIT" if d.get("materialized") else "MISS")
     err, perr, cerr = d.get("err_dex"), d.get("persist_err_dex"), d.get("clim_err_dex")
-    return {"id": d.get("id"), "kind": d.get("kind") or "alert", "issued_utc": d.get("created_at"),
+    return {"id": d.get("id"), "kind": d.get("kind") or "alert", "issued_ct": _to_ct(d.get("created_at")),
             "forecast_threshold": d.get("threshold"), "p_alert": rd(d.get("probability")),
             "p_M_24h": rd(d.get("p_m")), "p_X_24h": rd(d.get("p_x")),
             "expected_class": d.get("expected_class"), "current_class_at_issue": d.get("current_class"),
-            "window_h": d.get("window_h"), "verify_after_utc": d.get("verify_after"),
+            "window_h": d.get("window_h"), "verify_after_ct": _to_ct(d.get("verify_after")),
             "status": d.get("status"), "actual_peak_class": d.get("actual_peak_class"),
             "actual_peak_flux_wm2": d.get("actual_peak_flux"), "outcome": outcome,
-            "verified_utc": d.get("verified_at"), "alert_email": d.get("alert_status"),
+            "verified_ct": _to_ct(d.get("verified_at")), "alert_email": d.get("alert_status"),
             "followup": d.get("followup_status"),
             "predicted_peak_class": d.get("pred_peak_class"),
             "predicted_peak_flux_wm2": d.get("pred_peak_flux"),
