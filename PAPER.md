@@ -301,10 +301,16 @@ skill (which collapses due to non-transferable calibration). An operational syst
 uses a fixed threshold, so Section 5 reflects real deployment; the scorecard
 isolates the model's latent discriminative ceiling.
 
-**Caveat.** The scorecard's peak TSS selects the threshold on the test set itself
-(Youden's J), which is mildly optimistic; choosing it on a separate validation
-split would make the operational numbers strictly honest. This is noted as a
-limitation and does not affect the sign of either finding.
+**Metric note.** The numbers above use *peak TSS* (threshold maximised per test
+set), which is mildly optimistic because it peeks at test labels. The scorecard
+code has since been corrected to select the threshold on a held-out **validation**
+split and evaluate at that fixed threshold on the disjoint test set
+(`solarflare/scorecard.py`, `_val_selected_tss`) — the deployment-faithful,
+honest measure. Regenerating the table with the validation-selected method is
+pending (it requires re-running on the machine holding the operational datasets)
+and is expected to leave both findings' signs unchanged: validation-selected TSS
+≤ peak TSS, so the operational column can only stay equal or fall, which if
+anything *widens* the gap and *strengthens* the conclusion.
 
 ---
 

@@ -4,7 +4,7 @@ Research question: *Do standard benchmark scores overstate the real-time
 operational skill of ML flare forecasts, and does training on live satellite data
 close the gap?*
 
-A 2x2: two training sources x two test sets, scored with peak TSS.
+A 2x2: two training sources x two test sets.
 
                |  BENCHMARK test (held-out SWAN-SF)  |  OPERATIONAL test (live JSOC, unseen year)
   ------------ | ----------------------------------- | ------------------------------------------
@@ -14,6 +14,11 @@ A 2x2: two training sources x two test sets, scored with peak TSS.
 
   * Benchmarks overstate operational skill  <=>  a - b > 0
   * Live training closes the gap            <=>  (c - d) < (a - b)
+
+SKILL METRIC: TSS at a decision threshold chosen on a held-out VALIDATION split
+(never on the test set). Earlier versions used peak TSS (threshold maximised on
+the test set itself), which is optimistic; selecting the threshold on validation
+and evaluating on a disjoint test set is the honest, deployment-faithful measure.
 
 Both models are trained in-memory (save=False) so the deployed model is untouched.
 Writes skill_scorecard.json for the dashboard "Model Skill Scorecard" panel.
@@ -32,12 +37,23 @@ from . import sharptrain
 from .config import load_config
 
 
-def _peak_tss(payload: dict, X, y) -> float:
-    """Best-achievable TSS over all thresholds (Youden's J) — a threshold-free,
-    fair skill measure for comparing models across different test sets."""
-    p = payload["model"].predict_proba(X)[:, 1]
-    _, tss = ev.best_threshold(y, p, "tss")
-    return round(float(tss), 3)
+def _val_selected_tss(payload: dict, Xval, yval, Xte, yte) -> float:
+    """Honest TSS: pick the threshold that maximises TSS on the VALIDATION split,
+    then evaluate at that fixed threshold on the disjoint TEST set."""
+    pv = payload["model"].predict_proba(Xval)[:, 1]
+    thr, _ = ev.best_threshold(yval, pv, "tss")            # chosen on validation only
+    pt = payload["model"].predict_proba(Xte)[:, 1]
+    pred = (pt >= float(thr)).astype(int)
+    return round(float(ev.tss(yte, pred)), 3)
+
+
+def _val_test_split(d: dict, cfg: dict):
+    """Region-disjoint chronological val/test split of a dataset -> (Xval,yval,Xte,yte)."""
+    _, ival, ite = sharptrain.time_group_split(d["groups"], d["end_times"],
+                                               cfg["sharp_live"]["split"])
+    Xval, yval = dataio.build_matrix(d["X3d"][ival], cfg), d["y"][ival]
+    Xte, yte = dataio.build_matrix(d["X3d"][ite], cfg), d["y"][ite]
+    return Xval, yval, Xte, yte
 
 
 def run(cfg: dict | None = None) -> dict:
@@ -51,19 +67,19 @@ def run(cfg: dict | None = None) -> dict:
     print("Training live model (JSOC 2014) ...", flush=True)
     v1 = sharptrain.train(os.path.join(dd, "dataset_2014.npz"), cfg, save=False)
 
-    # BENCHMARK test = held-out region-disjoint split of SWAN-SF p1 (neither model
-    # trained on those exact windows). OPERATIONAL test = live JSOC 2015 (unseen year).
+    # BENCHMARK test = held-out region-disjoint val/test split of SWAN-SF p1.
+    # OPERATIONAL test = live JSOC 2015 (an unseen year), also split into val/test so
+    # the decision threshold is chosen on operational VALIDATION, never on the test.
     dp = sharpdata.load_dataset(os.path.join(dd, "dataset_swansf_p1.npz"))
-    _, _, ite = sharptrain.time_group_split(dp["groups"], dp["end_times"],
-                                            cfg["sharp_live"]["split"])
-    Xb, yb = dataio.build_matrix(dp["X3d"][ite], cfg), dp["y"][ite]
+    Xbv, ybv, Xbt, ybt = _val_test_split(dp, cfg)
     do = sharpdata.load_dataset(os.path.join(dd, "dataset_2015.npz"))
-    Xo, yo = dataio.build_matrix(do["X3d"], cfg), do["y"]
+    Xov, yov, Xot, yot = _val_test_split(do, cfg)
 
     rows = []
     for name, detail, m in [("Benchmark-trained", "SWAN-SF 2010-2012", v2),
                             ("Live-trained", "JSOC live data (2014)", v1)]:
-        b, o = _peak_tss(m, Xb, yb), _peak_tss(m, Xo, yo)
+        b = _val_selected_tss(m, Xbv, ybv, Xbt, ybt)
+        o = _val_selected_tss(m, Xov, yov, Xot, yot)
         rows.append({"name": name, "detail": detail, "benchmark_tss": b,
                      "operational_tss": o, "gap": round(b - o, 3)})
 
@@ -71,10 +87,11 @@ def run(cfg: dict | None = None) -> dict:
     live = next(r for r in rows if r["name"] == "Live-trained")
     out = {
         "title": "Benchmark score vs. real operational skill",
-        "metric": "peak TSS (True Skill Statistic; higher is better, 0 = no skill)",
+        "metric": "TSS at a validation-selected threshold (chosen on a held-out split, "
+                  "not the test set)",
         "test_sets": {
-            "benchmark": f"held-out SWAN-SF magnetograms ({int(len(yb))} windows, {int(yb.sum())} flares)",
-            "operational": f"live JSOC 2015, an unseen year ({int(len(yo))} windows, {int(yo.sum())} flares)",
+            "benchmark": f"held-out SWAN-SF magnetograms ({int(len(ybt))} windows, {int(ybt.sum())} flares)",
+            "operational": f"live JSOC 2015, an unseen year ({int(len(yot))} windows, {int(yot.sum())} flares)",
         },
         "models": rows,
         "findings": {

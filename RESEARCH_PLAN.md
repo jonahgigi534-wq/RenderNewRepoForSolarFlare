@@ -91,4 +91,7 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
       features, explaining operational degradation. (Paper §10.)
 - [x] **Board figures — DONE (6 figures in `figures/`).**
 - [ ] Verified citations + author name(s).
-- [ ] Scorecard: choose peak-TSS threshold on a validation split (remove optimism).
+- [x] **Scorecard optimism fixed in code** — thresholds now chosen on a held-out
+      validation split, not the test set (`scorecard.py` `_val_selected_tss`).
+      TODO (team): re-run `python -m solarflare.scorecard` where the .npz datasets
+      live to refresh skill_scorecard.json + dashboard + Figure 2.
