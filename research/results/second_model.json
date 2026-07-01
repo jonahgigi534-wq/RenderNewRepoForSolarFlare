@@ -1,0 +1,135 @@
+{
+  "architecture": "lightgbm",
+  "protocol": "identical to RandomForest (region-disjoint chronological split of SWAN-SF p1; thresholds tuned on validation only)",
+  "benchmark_test": {
+    "tss": 0.318,
+    "recall": 0.322,
+    "precision": 0.585,
+    "hss": 0.409
+  },
+  "periods": {
+    "2014_solar_max": {
+      "n": 3503,
+      "positives": 149,
+      "by_operating_point": {
+        "high_recall": {
+          "threshold": 0.056,
+          "tss": 0.559,
+          "tss_ci95": [
+            0.482,
+            0.629
+          ],
+          "recall": 0.711,
+          "precision": 0.172
+        },
+        "balanced": {
+          "threshold": 0.388,
+          "tss": 0.228,
+          "tss_ci95": [
+            0.158,
+            0.299
+          ],
+          "recall": 0.242,
+          "precision": 0.434
+        },
+        "high_precision": {
+          "threshold": 0.388,
+          "tss": 0.228,
+          "tss_ci95": [
+            0.158,
+            0.299
+          ],
+          "recall": 0.242,
+          "precision": 0.434
+        }
+      }
+    },
+    "2015_declining": {
+      "n": 2940,
+      "positives": 75,
+      "by_operating_point": {
+        "high_recall": {
+          "threshold": 0.056,
+          "tss": 0.743,
+          "tss_ci95": [
+            0.653,
+            0.831
+          ],
+          "recall": 0.813,
+          "precision": 0.232
+        },
+        "balanced": {
+          "threshold": 0.388,
+          "tss": 0.065,
+          "tss_ci95": [
+            0.013,
+            0.127
+          ],
+          "recall": 0.067,
+          "precision": 0.5
+        },
+        "high_precision": {
+          "threshold": 0.388,
+          "tss": 0.065,
+          "tss_ci95": [
+            0.013,
+            0.127
+          ],
+          "recall": 0.067,
+          "precision": 0.5
+        }
+      }
+    },
+    "2023_rising_max": {
+      "n": 4075,
+      "positives": 32,
+      "by_operating_point": {
+        "high_recall": {
+          "threshold": 0.056,
+          "tss": 0.513,
+          "tss_ci95": [
+            0.343,
+            0.655
+          ],
+          "recall": 0.688,
+          "precision": 0.03
+        },
+        "balanced": {
+          "threshold": 0.388,
+          "tss": -0.003,
+          "tss_ci95": [
+            -0.005,
+            -0.001
+          ],
+          "recall": 0.0,
+          "precision": 0.0
+        },
+        "high_precision": {
+          "threshold": 0.388,
+          "tss": -0.003,
+          "tss_ci95": [
+            -0.005,
+            -0.001
+          ],
+          "recall": 0.0,
+          "precision": 0.0
+        }
+      }
+    }
+  },
+  "rf_comparison": {
+    "2014_solar_max": {
+      "rf_live_tss": 0.35,
+      "lgbm_live_tss": 0.228
+    },
+    "2015_declining": {
+      "rf_live_tss": 0.641,
+      "lgbm_live_tss": 0.065
+    },
+    "2023_rising_max": {
+      "rf_live_tss": 0.334,
+      "lgbm_live_tss": -0.003
+    }
+  },
+  "rf_benchmark_tss": 0.772
+}

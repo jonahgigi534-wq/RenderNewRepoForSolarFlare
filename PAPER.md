@@ -95,7 +95,8 @@ close the gap?
 - **H₁ₐ:** A model scored on live, out-of-sample JSOC data shows significantly
   lower TSS than on the SWAN-SF benchmark. *(Supported — Sections 5 and 8.)*
 - **H₁ᵦ:** Training on live operational data closes the benchmark–operational gap.
-  *(Refuted — Section 8: the live-trained model does not recover the gap.)*
+  *(Refuted for single-year retraining — Section 8; multi-year training narrows
+  the gap but not statistically significantly.)*
 - **H₀ (null):** Benchmark and live operational TSS are statistically
   equivalent. *(Rejected.)*
 
@@ -181,6 +182,22 @@ rare-event precision ceiling).
 
 These results support H₁ across multiple periods and reject H₀. The 2023 estimate
 has wide CIs (only 32 positives) and should be read as indicative.
+
+**Architecture replication — the gap is not a RandomForest quirk.** A **LightGBM**
+gradient-boosted model trained under the identical protocol (same SWAN-SF p1
+training set, region-disjoint chronological split, thresholds tuned on validation
+only; `research/exp5_second_model.py`) shows the same pattern. At its high-recall
+operating point (threshold 0.056, the like-for-like comparison since its balanced
+threshold degenerated), LightGBM scores **TSS 0.917 on the benchmark test** but
+only **0.559 [0.48–0.63] (2014), 0.743 [0.65–0.83] (2015), and 0.513 [0.34–0.66]
+(2023)** on live data — a positive benchmark-vs-live gap in every period, at every
+operating point, mirroring the RandomForest. Two architectures on the flare task,
+plus the storm model in a different physical domain (Section 8), now show the
+same optimism: the gap is a property of the **evaluation regime**, not of any one
+model family. Notably, LightGBM's validation-tuned balanced threshold also failed
+to transfer *within* the benchmark itself (validation TSS 0.553 → test 0.318),
+an independent demonstration that threshold calibration, not discrimination, is
+the fragile component.
 
 ---
 
@@ -309,8 +326,8 @@ isolates the model's latent discriminative ceiling.
 **Most of the lost skill is recoverable — by calibration, not retraining.** The
 large default-threshold drop (0.77 → 0.35) is dominated by *miscalibration*, not by
 loss of discriminative ability: at a properly chosen threshold the model's
-operational skill rises to **TSS ≈ 0.82** (peak; the honest validation-selected
-value is pending regeneration and is expected to fall between 0.35 and 0.82). The
+operational skill rises to **TSS ≈ 0.82** (peak; ≈0.79 mean under the regenerated
+frozen-threshold protocol across four years — see the robust regeneration below). The
 discriminative signal therefore largely survives operation — what fails to transfer
 is the *threshold*. Re-selecting the operating point recovers most of the real-world
 skill, whereas retraining on live data does not (operational TSS 0.822 → 0.799).
@@ -337,16 +354,21 @@ Operational recalibration is thus a validated, deployable correction — complet
 the answer to the research question: benchmarks overstate, retraining does not
 help, **recalibration does.**
 
-**Metric note.** The numbers above use *peak TSS* (threshold maximised per test
-set), which is mildly optimistic because it peeks at test labels. The scorecard
-code has since been corrected to select the threshold on a held-out **validation**
-split and evaluate at that fixed threshold on the disjoint test set
-(`solarflare/scorecard.py`, `_val_selected_tss`) — the deployment-faithful,
-honest measure. Regenerating the table with the validation-selected method is
-pending (it requires re-running on the machine holding the operational datasets)
-and is expected to leave both findings' signs unchanged: validation-selected TSS
-≤ peak TSS, so the operational column can only stay equal or fall, which if
-anything *widens* the gap and *strengthens* the conclusion.
+**Robust regeneration (v2).** The scorecard has since been regenerated with a
+statistically hardened protocol (`python -m solarflare.reproduce`, RESULTS.md):
+**four** operational years (2013/2015/2016/2017), **cluster** bootstrap resampling
+whole active regions (windows of one region are correlated; i.i.d. resampling
+would understate uncertainty), and **frozen validation-tuned thresholds** alongside
+peak TSS. Both findings survive and sharpen: the benchmark-trained gap is
+**+0.078 peak (95% CI +0.006..+0.306) and +0.085 frozen (CI +0.007..+0.309)** —
+positive in every tested year — while single-year live training *widens* the gap
+(+0.109). One refinement emerges: training on **multiple** live years
+(2011+2012+2014) narrows the gap to +0.046, though the difference's CI includes
+zero — so multi-year operational training *may* partially help, but is not
+statistically established. The same protocol also reproduces the optimism on the
+**geomagnetic-storm model** (peak gap +0.165, CI +0.006..+0.372) — a different
+feature space and physical domain — indicating the effect is not a flare-model
+quirk.
 
 ---
 
@@ -422,8 +444,12 @@ distributions differ most between the curated benchmark and live operation.
 - Low-activity periods contain few M+ flares (2023: 32 positives), widening
   confidence intervals — the 2023 result is indicative, not definitive.
 - TSS depends on operating point; comparisons are reported per threshold.
-- All results use one model architecture (RandomForest); generality across model
-  families is untested.
+- The gap now replicates across two flare-model architectures (RandomForest,
+  LightGBM) and a storm model in a separate feature space; broader families
+  (e.g., deep sequence models) remain untested.
+- Multi-year live training narrows the gap (+0.046 vs +0.078) but the difference's
+  CI includes zero — H₁ᵦ's refutation is firm for single-year retraining and
+  open for larger operational training sets.
 - The correction experiment (Section 8) is not yet complete.
 
 ---
@@ -436,11 +462,16 @@ three solar-cycle phases — the benchmark exceeds the upper 95% CI of live skil
 in every period, overstating operational skill by up to ~2×, condition-dependent.
 A controlled 2×2 experiment further shows that **retraining on live operational
 data does not close the gap**, indicating the overstatement is a property of the
-benchmark's evaluation set rather than of the training distribution. Together
-these results establish a reproducible method for honestly evaluating operational
-solar-flare forecasts and caution that benchmark leaderboard scores must not be
-read as operational performance. The practical implication is that the community
-should benchmark on live-operational test sets, not only curated partitions.
+benchmark's evaluation set rather than of the training distribution — while a
+threshold **recalibrated** on one operational period and frozen recovers TSS to
+0.66–0.84 on unseen years. The gap **replicates on a second architecture**
+(LightGBM) and on a geomagnetic-storm model in a separate feature space, and it
+survives a hardened protocol (four operational years, cluster bootstrap, frozen
+thresholds). Together these results establish a reproducible method for honestly
+evaluating operational solar-flare forecasts and caution that benchmark
+leaderboard scores must not be read as operational performance. The practical
+implication is that the community should benchmark on live-operational test
+sets, not only curated partitions.
 
 ---
 

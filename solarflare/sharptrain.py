@@ -68,6 +68,15 @@ def build_candidates(cfg: dict) -> dict:
             *pre(), HistGradientBoostingClassifier(
                 learning_rate=0.06, max_iter=400, l2_regularization=1.0,
                 early_stopping=True, class_weight="balanced", random_state=rs))
+    if "lightgbm" in req:                                  # optional, like train.py's zoo
+        try:
+            from lightgbm import LGBMClassifier
+            zoo["lightgbm"] = make_pipeline(
+                *pre(), LGBMClassifier(n_estimators=400, learning_rate=0.06,
+                                       num_leaves=31, class_weight="balanced",
+                                       random_state=rs, n_jobs=-1, verbose=-1))
+        except ImportError:
+            pass
     return zoo
 
 

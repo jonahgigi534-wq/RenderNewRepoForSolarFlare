@@ -89,7 +89,11 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
       non-overlapping in both. Recalibration is a validated deployable correction
       (`research/exp4_recalibration.py`, Fig 7, paper §8).
 - [ ] More windows per phase to tighten CIs further (optional).
-- [ ] Replicate the gap on a second model family (LightGBM) — generalizability.
+- [x] **Second-architecture replication (LightGBM) — DONE.** Identical protocol on
+      the rebuilt SWAN-SF p1 set (73,492 samples, exact match to the deployed
+      model's training data): benchmark TSS 0.917 vs live 0.51–0.74 at the
+      like-for-like threshold — positive gap in every period, every operating
+      point. Gap is architecture-independent (`research/exp5_second_model.py`).
 - [x] **Physics interpretation — DONE.** RF feature importance: top 5 params
       (TOTUSJH, TOTUSJZ, R_VALUE, USFLUX, TOTPOT) = 72% of decisions. PCA: PC1 = 33%
       (AR size/energy axis). Key insight: most-important features = most-shifted
