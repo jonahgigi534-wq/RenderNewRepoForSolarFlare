@@ -1,0 +1,134 @@
+{
+  "training_span": [
+    "2010-05-01 00:00:00+00:00",
+    "2012-03-12 18:24:00+00:00"
+  ],
+  "benchmark_swansf": {
+    "tss": 0.772,
+    "recall": 0.805,
+    "precision": 0.286,
+    "hss": 0.408
+  },
+  "periods": {
+    "2014_solar_max": {
+      "n": 3503,
+      "positives": 149,
+      "base_rate": 0.0425,
+      "by_operating_point": {
+        "high_recall": {
+          "threshold": 0.031,
+          "tss": 0.64,
+          "tss_ci95": [
+            0.58,
+            0.697
+          ],
+          "recall": 0.859,
+          "precision": 0.148,
+          "hss": 0.195
+        },
+        "balanced": {
+          "threshold": 0.104,
+          "tss": 0.35,
+          "tss_ci95": [
+            0.268,
+            0.434
+          ],
+          "recall": 0.416,
+          "precision": 0.219,
+          "hss": 0.245
+        },
+        "high_precision": {
+          "threshold": 0.107,
+          "tss": 0.34,
+          "tss_ci95": [
+            0.26,
+            0.418
+          ],
+          "recall": 0.403,
+          "precision": 0.221,
+          "hss": 0.244
+        }
+      }
+    },
+    "2015_declining": {
+      "n": 2940,
+      "positives": 75,
+      "base_rate": 0.0255,
+      "by_operating_point": {
+        "high_recall": {
+          "threshold": 0.031,
+          "tss": 0.831,
+          "tss_ci95": [
+            0.774,
+            0.876
+          ],
+          "recall": 0.947,
+          "precision": 0.177,
+          "hss": 0.266
+        },
+        "balanced": {
+          "threshold": 0.104,
+          "tss": 0.641,
+          "tss_ci95": [
+            0.537,
+            0.74
+          ],
+          "recall": 0.667,
+          "precision": 0.407,
+          "hss": 0.489
+        },
+        "high_precision": {
+          "threshold": 0.107,
+          "tss": 0.602,
+          "tss_ci95": [
+            0.488,
+            0.706
+          ],
+          "recall": 0.627,
+          "precision": 0.402,
+          "hss": 0.473
+        }
+      }
+    },
+    "2023_rising_max": {
+      "n": 4075,
+      "positives": 32,
+      "base_rate": 0.0079,
+      "by_operating_point": {
+        "high_recall": {
+          "threshold": 0.031,
+          "tss": 0.662,
+          "tss_ci95": [
+            0.551,
+            0.752
+          ],
+          "recall": 0.906,
+          "precision": 0.029,
+          "hss": 0.041
+        },
+        "balanced": {
+          "threshold": 0.104,
+          "tss": 0.334,
+          "tss_ci95": [
+            0.168,
+            0.524
+          ],
+          "recall": 0.406,
+          "precision": 0.043,
+          "hss": 0.064
+        },
+        "high_precision": {
+          "threshold": 0.107,
+          "tss": 0.339,
+          "tss_ci95": [
+            0.167,
+            0.516
+          ],
+          "recall": 0.406,
+          "precision": 0.045,
+          "hss": 0.069
+        }
+      }
+    }
+  }
+}

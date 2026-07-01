@@ -1,0 +1,149 @@
+"""Regenerate all board/paper figures (figures/fig1-6) from research/results/*.json."""
+import json
+import os
+
+import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+from _common import ROOT, RESULTS, FIGURES
+
+plt.rcParams.update({"figure.dpi": 140, "font.size": 11, "axes.grid": True,
+                     "grid.alpha": 0.25, "axes.axisbelow": True})
+C_BENCH, C_LIVE, C_HR, C_BAD = "#3b5bdb", "#e8590c", "#f08c00", "#c92a2a"
+
+mp = json.load(open(os.path.join(RESULTS, "multiperiod_rescore.json")))
+sc = json.load(open(os.path.join(ROOT, "skill_scorecard.json")))
+ks = json.load(open(os.path.join(RESULTS, "exp2_distribution.json")))
+ph = json.load(open(os.path.join(RESULTS, "physics.json")))
+BENCH_TSS = mp["benchmark_swansf"]["tss"]
+
+# ---------- Fig 1: Exp 1 multi-period ----------
+periods = [("2014_solar_max", "2014\n(solar max)"), ("2015_declining", "2015\n(declining)"),
+           ("2023_rising_max", "2023\n(rising max)")]
+labels = [p[1] for p in periods]
+bal = [mp["periods"][p[0]]["by_operating_point"]["balanced"] for p in periods]
+hr = [mp["periods"][p[0]]["by_operating_point"]["high_recall"] for p in periods]
+
+def err(rows):
+    lo = [r["tss"] - r["tss_ci95"][0] for r in rows]
+    hi = [r["tss_ci95"][1] - r["tss"] for r in rows]
+    return [lo, hi]
+
+x = np.arange(len(labels)); w = 0.36
+fig, ax = plt.subplots(figsize=(7.2, 4.4))
+ax.axhline(BENCH_TSS, ls="--", color=C_BENCH, lw=2, label=f"SWAN-SF benchmark ({BENCH_TSS})")
+ax.bar(x - w/2, [r["tss"] for r in bal], w, yerr=err(bal), capsize=4, color=C_LIVE, label="live @ default")
+ax.bar(x + w/2, [r["tss"] for r in hr], w, yerr=err(hr), capsize=4, color=C_HR, label="live @ high-recall")
+ax.set_xticks(x); ax.set_xticklabels(labels); ax.set_ylabel("TSS (True Skill Statistic)")
+ax.set_ylim(0, 1); ax.set_title("Benchmark overstates live operational skill (all periods)")
+ax.legend(loc="upper right", framealpha=0.95)
+fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig1_multiperiod.png")); plt.close(fig)
+
+# ---------- Fig 2: Exp 3 the 2x2 scorecard ----------
+models = sc["models"]
+names = [m["name"] for m in models]
+btss = [m["benchmark_tss"] for m in models]; otss = [m["operational_tss"] for m in models]
+x = np.arange(len(names)); w = 0.36
+fig, ax = plt.subplots(figsize=(7.2, 4.4))
+b1 = ax.bar(x - w/2, btss, w, color=C_BENCH, label="benchmark test")
+b2 = ax.bar(x + w/2, otss, w, color=C_LIVE, label="operational test (live 2015)")
+for i, m in enumerate(models):
+    ax.annotate(f"gap {m['gap']:.3f}", (x[i], max(btss[i], otss[i]) + 0.03), ha="center",
+                color=C_BAD, fontweight="bold")
+ax.set_xticks(x); ax.set_xticklabels(names); ax.set_ylabel(sc.get("metric", "TSS").split(" (")[0])
+ax.set_ylim(0, 1.05); ax.set_title("Training on live data does NOT close the gap")
+ax.legend(loc="lower center"); ax.bar_label(b1, fmt="%.2f", padding=2); ax.bar_label(b2, fmt="%.2f", padding=2)
+fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig2_scorecard_2x2.png")); plt.close(fig)
+
+# ---------- Fig 3: Exp 2 KS distribution shift ----------
+feats = sorted(ks["features"].items(), key=lambda kv: kv[1]["ks_D"])
+names = [f[0] for f in feats]; D = [f[1]["ks_D"] for f in feats]
+fig, ax = plt.subplots(figsize=(7.2, 5.2))
+colors = [C_BAD if d >= 0.2 else C_LIVE if d >= 0.1 else C_HR for d in D]
+ax.barh(names, D, color=colors)
+ax.set_xlabel("Kolmogorov–Smirnov D  (benchmark era 2011 vs operational 2015)")
+ax.set_title(f"All 17/17 SHARP features shift (median D = {ks['median_ks_D']})")
+ax.axvline(ks["median_ks_D"], ls="--", color="#495057", lw=1.2, label=f"median {ks['median_ks_D']}")
+ax.legend(loc="lower right")
+fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig3_distribution_shift.png")); plt.close(fig)
+
+# ---------- Fig 4: accuracy illusion (2014 numbers) ----------
+p2014 = mp["periods"]["2014_solar_max"]; n = p2014["n"]; pos = p2014["positives"]
+base = pos / n
+hrr = p2014["by_operating_point"]["high_recall"]
+tp = round(hrr["recall"] * pos); fn = pos - tp
+fp = round(tp * (1 - hrr["precision"]) / hrr["precision"]); tn = (n - pos) - fp
+acc_real = (tp + tn) / n
+acc_null = 1 - base
+groups = ["Always \"no-flare\"\n(zero skill)", "Real model\n@ high-recall"]
+accs = [acc_null, acc_real]; tsss = [0.0, hrr["tss"]]
+x = np.arange(len(groups)); w = 0.36
+fig, ax = plt.subplots(figsize=(7.2, 4.4))
+b1 = ax.bar(x - w/2, accs, w, color="#adb5bd", label="Accuracy")
+b2 = ax.bar(x + w/2, tsss, w, color=C_LIVE, label="TSS (real skill)")
+ax.set_xticks(x); ax.set_xticklabels(groups); ax.set_ylabel("score"); ax.set_ylim(0, 1.05)
+ax.set_title("The accuracy illusion: a zero-skill model 'wins' on accuracy")
+ax.bar_label(b1, fmt="%.2f", padding=2); ax.bar_label(b2, fmt="%.2f", padding=2)
+ax.legend(loc="upper right")
+fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig4_accuracy_illusion.png")); plt.close(fig)
+
+# ---------- Fig 5: feature importance ----------
+imp = ph["importance_per_param"]
+names = list(imp)[::-1]; vals = [imp[k] for k in names]
+top5 = set(list(imp)[:5])
+colors = ["#c92a2a" if k in top5 else "#f08c00" for k in names]
+fig, ax = plt.subplots(figsize=(7.2, 5.2))
+ax.barh(names, vals, color=colors)
+ax.set_xlabel("Feature importance (RandomForest, summed over 7 summary stats)")
+ax.set_title("What drives the flare model: extensive current/flux parameters")
+ax.annotate("top 5 = 72% of the model's\ndecisions (red)", (max(vals) * 0.55, 2.2),
+            color="#c92a2a", fontsize=10)
+fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig5_feature_importance.png")); plt.close(fig)
+
+# ---------- Fig 6: PCA scree ----------
+evr = ph["pca_explained_variance_ratio"]; cum = ph["pca_cumulative"]
+n90 = ph["pca_n_components_90pct"]
+x = np.arange(1, len(evr) + 1)
+fig, ax = plt.subplots(figsize=(7.2, 4.4))
+ax.bar(x, [v * 100 for v in evr], color=C_BENCH, label="per-PC variance")
+ax2 = ax.twinx(); ax2.grid(False)
+ax2.plot(x, [c * 100 for c in cum], "o-", color=C_LIVE, label="cumulative")
+ax.set_xlabel("Principal component"); ax.set_ylabel("variance explained (%)")
+ax2.set_ylabel("cumulative variance (%)"); ax2.set_ylim(0, 100)
+ax.set_title(f"PCA of SHARP features: PC1 = {evr[0]:.0%} (AR size/energy axis); "
+             f"{n90} PCs reach 90%")
+ax.set_xticks(x)
+l1, n1 = ax.get_legend_handles_labels(); l2, n2 = ax2.get_legend_handles_labels()
+ax.legend(l1 + l2, n1 + n2, loc="center right")
+fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig6_pca_scree.png")); plt.close(fig)
+
+# ---------- Fig 7: Exp 4 — the validated recalibration fix ----------
+rc_path = os.path.join(RESULTS, "recalibration.json")
+if os.path.exists(rc_path):
+    rc = json.load(open(rc_path))
+    tests = [("2015_declining", "2015 (unseen)"), ("2023_rising_max", "2023 (unseen)")]
+    labels = [t[1] for t in tests]
+    dflt = [rc["tests"][t[0]]["default"] for t in tests]
+    recal = [rc["tests"][t[0]]["recalibrated"] for t in tests]
+    x = np.arange(len(labels)); w = 0.36
+    fig, ax = plt.subplots(figsize=(7.2, 4.4))
+    ax.axhline(BENCH_TSS, ls="--", color=C_BENCH, lw=2, label=f"benchmark score ({BENCH_TSS})")
+    b1 = ax.bar(x - w/2, [r["tss"] for r in dflt], w, yerr=err(dflt), capsize=4,
+                color="#adb5bd", label=f"default threshold ({rc['default_threshold']})")
+    b2 = ax.bar(x + w/2, [r["tss"] for r in recal], w, yerr=err(recal), capsize=4,
+                color=C_LIVE, label=f"recalibrated on 2014, frozen ({rc['recalibrated_threshold']})")
+    for i in range(len(labels)):
+        gain = recal[i]["tss"] - dflt[i]["tss"]
+        ax.annotate(f"+{gain:.2f}", (x[i] + w/2 + w * 0.62, recal[i]["tss"] / 2),
+                    ha="left", color="#2b8a3e", fontweight="bold", fontsize=12)
+    ax.set_xticks(x); ax.set_xticklabels(labels); ax.set_ylabel("live TSS")
+    ax.set_ylim(0, 1.05)
+    ax.set_title("The fix works: a threshold recalibrated on 2014 transfers to unseen years")
+    ax.legend(loc="lower right", framealpha=0.95)
+    ax.bar_label(b1, fmt="%.2f", padding=2); ax.bar_label(b2, fmt="%.2f", padding=2)
+    fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig7_recalibration_fix.png")); plt.close(fig)
+    print("wrote fig7")
+
+print("wrote figures to", FIGURES)

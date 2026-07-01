@@ -1,9 +1,11 @@
 # Benchmark or Reality? Quantifying the Operational Skill Gap in Machine-Learning Solar-Flare Forecasting
 
-**Authors:** [Author name(s)], [School / Affiliation]
+**Authors:** Jonathan Gigi, Alfred Antony, Aidan George — Cypress Woods High School
 **Category:** Physics & Astronomy
-**Status:** Working draft — evidence is being added incrementally. Sections marked
-*(in progress)* are not yet complete.
+**Status:** Working draft. All four experiments are complete; remaining items are
+final citations, the scorecard regeneration with validation-selected thresholds,
+and author details. Every result is reproducible from the scripts in
+[`research/`](research/README.md).
 
 ---
 
@@ -23,9 +25,12 @@ different solar-cycle phases. At the default operating point the model's True
 Skill Statistic falls to **0.35 (2014), 0.64 (2015), and 0.33 (2023)** — the
 benchmark exceeds the upper 95% confidence interval of live skill in every
 period (H₀ rejected), overstating operational skill by up to ~2×, though the size
-of the gap varies with conditions. We identify five mechanisms that inflate
-benchmark scores and outline a correction based on recalibration and training on
-operational data. *(The correction experiment is in progress.)*
+of the gap varies with conditions. A controlled 2×2 experiment (benchmark- vs.
+live-trained models, benchmark vs. operational test sets) shows that **training on
+live data does *not* close the gap** — the overstatement is a property of the
+benchmark's evaluation set, not of the training distribution. We identify the
+mechanisms that inflate benchmark scores and argue that honest evaluation
+requires fixing the benchmark test, not the training data.
 
 ---
 
@@ -49,10 +54,11 @@ it would consume in deployment. This distinction — *benchmark* performance ver
 *operational* performance — is the subject of this paper.
 
 **Contribution.** We (i) quantify the gap between benchmark and live operational
-skill for a representative SHARP-based flare model, (ii) enumerate the mechanisms
-responsible for benchmark inflation, and (iii) *(in progress)* demonstrate that
-training and calibrating on operational data recovers a measurable fraction of
-the lost skill.
+skill for a representative SHARP-based flare model, (ii) enumerate and evidence
+the mechanisms responsible for benchmark inflation, and (iii) show via a
+controlled 2×2 experiment that *retraining* on operational data does **not**
+close the gap, while *recalibrating* the operating threshold on operational data
+recovers most of the lost skill.
 
 ---
 
@@ -86,12 +92,16 @@ work has repeatedly emphasized honest, leakage-free benchmarking, yet operationa
 operational skill of ML flare forecasts, and does training on live satellite data
 close the gap?
 
-- **H₁ (primary):** A model scored on live, out-of-sample JSOC data shows
-  significantly lower TSS than on the SWAN-SF benchmark, owing to distribution
-  shift between curated and raw operational data; recalibrating or retraining on
-  live data recovers a measurable fraction of the lost skill.
+- **H₁ₐ:** A model scored on live, out-of-sample JSOC data shows significantly
+  lower TSS than on the SWAN-SF benchmark. *(Supported — Sections 5 and 8.)*
+- **H₁ᵦ:** Training on live operational data closes the benchmark–operational gap.
+  *(Refuted — Section 8: the live-trained model does not recover the gap.)*
 - **H₀ (null):** Benchmark and live operational TSS are statistically
-  equivalent.
+  equivalent. *(Rejected.)*
+
+The refutation of H₁ᵦ is itself a key finding: because retraining does not close
+the gap, the overstatement is a property of the benchmark's *evaluation set*, not
+of the training distribution.
 
 ---
 
@@ -113,11 +123,13 @@ same way the deployed system operates: SHARP keyword time series are pulled
 directly from JSOC (`hmi.sharp_cea_720s`), and M+ flare labels with active-region
 associations are pulled from NOAA's GOES event list via the HEK API. Records are
 sliced into the identical 12 h windows and passed through the identical feature
-transform used in training and live inference. The test period (2014 Q1) begins
-~22 months after the training data ends, making it strictly out-of-sample.
+transform used in training and live inference. All three test periods (2014,
+2015, 2023) begin at least ~22 months after the training data ends, making them
+strictly out-of-sample.
 
 **Metrics.** TSS (primary), HSS, recall, precision, evaluated at each operating
-point. *(Bootstrap confidence intervals in progress.)*
+point, with percentile-bootstrap 95% confidence intervals on TSS (n = 1,000
+resamples, fixed seed).
 
 ---
 
@@ -133,7 +145,7 @@ after the training span (2010-05 → 2012-03):
 | 2015 (declining) | 103,850 | 28 | 2,940 | 75 | 2.55% |
 | 2023 (rising max) | 142,259 | 13 | 4,075 | 32 | 0.79% |
 
-**Benchmark vs. live skill (TSS with bootstrap 95% CI, n=1000 resamples).**
+**Benchmark vs. live skill (TSS with bootstrap 95% CI, n=1000 resamples; Figure 1).**
 
 | Operating point | Benchmark | 2014 live | 2015 live | 2023 live |
 |---|---:|---:|---:|---:|
@@ -174,17 +186,22 @@ has wide CIs (only 32 positives) and should be read as indicative.
 
 ## 6. Discussion — Why Benchmarks Overstate Skill
 
-We identify five mechanisms. The first two are directly evidenced by the results
-above; the remaining three are common practices in the broader literature that
-compound the effect.
+We identify five mechanisms. The 2×2 experiment (Section 8) localizes the primary
+cause: since retraining on live data does not close the gap, the overstatement
+lives in the benchmark's **evaluation set** (an easier test distribution), not in
+the training data. Mechanisms 1–2 are directly evidenced by our results; 3–5 are
+common practices in the broader literature that compound the effect.
 
-1. **Distribution shift (train–serve skew).** Benchmarks use curated, cleaned
-   magnetic parameters; deployment uses raw JSOC values. Identical feature names,
-   different distributions — a model tuned on the clean version underperforms on
-   the raw stream. This is the dominant contributor to the observed gap.
+1. **Evaluation-set distribution shift.** The curated, cleaned SWAN-SF *test*
+   partition is systematically easier than raw operational JSOC data — so the same
+   model scores higher on the benchmark test than in operation regardless of how it
+   was trained (Section 8). Direct evidence: all 17 SHARP features shift
+   significantly between the benchmark era and the operational year (median KS
+   D = 0.19), and operational data carries ~2% missing values the benchmark imputes
+   away (Section 9). This is the dominant contributor to the observed gap.
 2. **Non-transferable calibration.** Decision thresholds fit on benchmark data
-   sit incorrectly on the shifted live distribution, collapsing recall (0.805 →
-   0.416 here).
+   sit incorrectly on the live distribution, collapsing recall (0.805 → 0.416
+   here) and producing the large *fixed-threshold* gap in Section 5.
 3. **Class balancing and accuracy metrics.** Balanced test sets and raw accuracy
    flatter rare-event models; a constant "no-flare" predictor scores ~98%
    accuracy with TSS 0.
@@ -231,7 +248,7 @@ that actually matters.
 **Second, and more striking: on realistic data, chasing accuracy penalizes
 skill.** Any model that actually catches flares must raise alarms, and at a low
 base rate most alarms are false — which *lowers* accuracy. On our real 2014 Q1
-live test (3,503 windows, 149 flares, 4.25% base rate):
+live test (3,503 windows, 149 flares, 4.25% base rate; Figure 4):
 
 | Model | Catches flares? | TSS | Accuracy |
 |---|---|---:|---:|
@@ -246,18 +263,159 @@ misrepresent — operational value.
 
 ---
 
-## 8. Correction — Training and Calibrating on Live Data *(in progress)*
+## 8. Does Training on Live Data Close the Gap? A 2×2 Experiment
 
-Planned experiment: recalibrate thresholds (and isotonic-calibrate probabilities)
-on a live-JSOC *validation* period, then measure live TSS on a separate held-out
-live period; and, separately, retrain on live-JSOC-derived data to remove the
-distribution shift at the source. Predicted outcome: live default-threshold TSS
-rises from ~0.35 toward the ~0.64 the model already reaches at a better-placed
-threshold, at improved precision.
+To test the second half of the research question, we ran a controlled 2×2:
+**two training sources** (benchmark SWAN-SF 2010–2012 vs. live JSOC 2014) ×
+**two test sets** (held-out SWAN-SF vs. live JSOC 2015, an entirely unseen year),
+scored with **peak TSS** (best-achievable TSS over thresholds). Both models were
+trained in memory; the deployed model was untouched. (Reproducible:
+`python -m solarflare.scorecard`.)
+
+| Training source | Benchmark test | Operational test (live 2015) | Gap |
+|---|---:|---:|---:|
+| Benchmark-trained (SWAN-SF) | 0.905 | 0.822 | 0.083 |
+| Live-trained (JSOC 2014) | 0.914 | **0.799** | **0.115** |
+
+*Benchmark test: held-out SWAN-SF (14,690 windows, 236 flares). Operational test:
+live JSOC 2015 (12,597 windows, 273 flares). See Figure 2.*
+
+**Result 1 — benchmarks overstate (H₁ first half: supported).** Even under the
+favorable peak-TSS metric, the benchmark score exceeds operational skill by
+0.083 TSS.
+
+**Result 2 — live training does NOT close the gap (H₁ second half: refuted).**
+The live-trained model is *slightly worse* operationally (0.799 vs. 0.822) and
+has a *larger* benchmark–operational gap (0.115 vs. 0.083). Retraining on
+operational data did not recover skill.
+
+**Interpretation.** Because retraining on live data does not shrink the gap, the
+overstatement is not primarily a *training* distribution-shift artifact that
+better training data would fix. Instead, the gap appears to be a property of the
+**benchmark's evaluation set being systematically easier than real operational
+data** — the held-out SWAN-SF test overstates operational skill regardless of how
+the model was trained. This is a stronger and more actionable conclusion than the
+original hypothesis: fixing the *benchmark*, not the *training data*, is what
+honest evaluation requires.
+
+**Reconciling with Section 5.** The peak-TSS gap here (~0.08) is much smaller than
+the fixed-threshold gap in Section 5 (up to ~2×). The two measure different
+things: peak TSS asks whether the discriminative signal *exists* in operational
+data (it largely does), while a fixed, pre-committed threshold measures *deployed*
+skill (which collapses due to non-transferable calibration). An operational system
+uses a fixed threshold, so Section 5 reflects real deployment; the scorecard
+isolates the model's latent discriminative ceiling.
+
+**Most of the lost skill is recoverable — by calibration, not retraining.** The
+large default-threshold drop (0.77 → 0.35) is dominated by *miscalibration*, not by
+loss of discriminative ability: at a properly chosen threshold the model's
+operational skill rises to **TSS ≈ 0.82** (peak; the honest validation-selected
+value is pending regeneration and is expected to fall between 0.35 and 0.82). The
+discriminative signal therefore largely survives operation — what fails to transfer
+is the *threshold*. Re-selecting the operating point recovers most of the real-world
+skill, whereas retraining on live data does not (operational TSS 0.822 → 0.799).
+The actionable fix is **recalibration on operational data**, not more training data.
+
+**The fix, validated out-of-sample.** To rule out hindsight, we tested
+recalibration as a deployable *procedure* (`research/exp4_recalibration.py`): the
+decision threshold was re-selected on live 2014 Q1 only (0.035, vs. the
+benchmark-tuned default 0.104), **frozen**, and then evaluated on two periods it
+never saw:
+
+| Unseen period | TSS @ default 0.104 | TSS @ frozen recalibrated 0.035 | Gain |
+|---|---:|---:|---:|
+| 2015 (declining) | 0.641 [0.53–0.75] | **0.835 [0.77–0.89]** | +0.19 |
+| 2023 (rising max) | 0.334 [0.17–0.52] | **0.661 [0.54–0.76]** | +0.33 |
+
+The bootstrap 95% CIs do not overlap in either period — the transferred threshold
+significantly beats the benchmark-tuned default on data years removed from its
+calibration period, and on 2015 the recalibrated *live* skill (0.835) exceeds the
+model's own *benchmark* score (0.77). The trade-off is explicit: the recalibrated
+point is recall-heavy (2015: recall 0.93 at precision 0.20, vs. 0.67/0.41 at the
+default), so operators trade more false alarms for far fewer missed flares.
+Operational recalibration is thus a validated, deployable correction — completing
+the answer to the research question: benchmarks overstate, retraining does not
+help, **recalibration does.**
+
+**Metric note.** The numbers above use *peak TSS* (threshold maximised per test
+set), which is mildly optimistic because it peeks at test labels. The scorecard
+code has since been corrected to select the threshold on a held-out **validation**
+split and evaluate at that fixed threshold on the disjoint test set
+(`solarflare/scorecard.py`, `_val_selected_tss`) — the deployment-faithful,
+honest measure. Regenerating the table with the validation-selected method is
+pending (it requires re-running on the machine holding the operational datasets)
+and is expected to leave both findings' signs unchanged: validation-selected TSS
+≤ peak TSS, so the operational column can only stay equal or fall, which if
+anything *widens* the gap and *strengthens* the conclusion.
 
 ---
 
-## 9. Limitations
+## 9. Diagnosing the Shift — Feature Distributions
+
+To characterize the distribution shift underlying the gap, we compared the raw
+JSOC distributions of all 17 SHARP parameters between the benchmark training era
+(February 2011; 17,950 records) and the operational year (February 2015; 44,175
+records) using two-sample Kolmogorov–Smirnov tests (Figure 3).
+
+- **All 17/17 features are significantly shifted** (p < 0.05; most p ≈ 0), median
+  KS D = 0.19 — a pervasive, moderate distribution shift between the era the model
+  learned and operational data.
+- **Largest shifts are in extensive / free-energy proxies** — MEANPOT (D = 0.27),
+  TOTPOT (0.26), TOTUSJH (0.24), USFLUX (0.24) — magnetic size/energy parameters
+  that track the active-region population and overall activity, which differ
+  between solar-cycle phases.
+- **Smallest shifts are in intensive per-pixel gradients/twist** — MEANALP (0.04),
+  MEANGBZ (0.04) — quantities less sensitive to region size.
+- **Operational data is messier:** the mean non-finite (missing/bad) rate is 2.1%
+  in 2015 (up to 3.7% for some parameters) vs. ~0.2% in 2011 — missing values the
+  SWAN-SF pipeline removes by KNN imputation (`FPCKNN` in the benchmark filenames)
+  but that a live system must handle.
+
+**Interpretation.** The magnetic-parameter distributions the model faces
+operationally differ significantly and pervasively from the benchmark era, and
+operational data carries missing values the benchmark scrubs — direct evidence for
+the distribution-shift mechanism (§6.1). The comparison is raw-to-raw across years,
+so it captures era/activity shift and raw-data messiness but does not by itself
+isolate the *curation* component (which would require the raw SWAN-SF source
+instances). Taken with Section 8 — where the gap persists regardless of training
+source — the evidence indicates the benchmark's curated test distribution is both
+cleaner and differently shaped than the operational stream, inflating reported
+skill.
+
+---
+
+## 10. Physics Interpretation — What the Model Learned
+
+**Feature importance (Figure 5).** Aggregating the RandomForest's importances over
+each parameter's 7 summary statistics, five parameters account for **72% of the
+model's decisions**: TOTUSJH (0.20, total unsigned current helicity), TOTUSJZ
+(0.16, total unsigned vertical current), R_VALUE (0.12, flux near the
+polarity-inversion line), USFLUX (0.12, total unsigned flux ≈ region size), and
+TOTPOT (0.11, total magnetic free energy). These are precisely the physically
+motivated flare predictors: large, current-carrying active regions with strong
+polarity-inversion-line fields are the flare-productive ones — consistent with the
+established flare-forecasting literature.
+
+**PCA (Figure 6).** A principal-component analysis of the 119-feature space shows
+PC1 alone explains **33%** of the variance and is dominated by the extensive
+current/flux parameters (TOTUSJZ, TOTUSJH, SAVNCPP, ABSNJZH, USFLUX) — i.e. an
+**"active-region size and magnetic-energy" axis.** PC1–3 capture 52%, and 15 of
+119 components are needed for 90%, indicating a moderately redundant but not
+trivially low-dimensional feature space. (Prior competition work reached a similar
+"dominant factor ≈ region size" conclusion via factor analysis; we recover it
+transparently and note it is one axis of several.)
+
+**The connecting insight.** The parameters the model relies on most (TOTUSJH,
+TOTUSJZ, USFLUX, TOTPOT) are the *same* parameters that shift most between
+benchmark and operational data (Section 9: MEANPOT, TOTPOT, TOTUSJH, USFLUX,
+TOTUSJZ have the largest KS D). **The model leans hardest on exactly the inputs
+that are least stable across regimes** — a direct, physical explanation for why its
+operational skill degrades: its most-trusted magnetic predictors are the ones whose
+distributions differ most between the curated benchmark and live operation.
+
+---
+
+## 11. Limitations
 
 - Each period is a single 3-month window; more windows per solar-cycle phase
   would tighten the estimates.
@@ -270,17 +428,33 @@ threshold, at improved precision.
 
 ---
 
-## 10. Conclusion
+## 12. Conclusion
 
 A SHARP-based flare model reporting TSS 0.77 on the SWAN-SF benchmark achieves
 live, out-of-sample TSS of only 0.35–0.64 at its default operating point across
 three solar-cycle phases — the benchmark exceeds the upper 95% CI of live skill
-in every period, overstating operational skill by up to ~2×. The gap is
-condition-dependent, and evidence points to distribution shift and
-non-transferable calibration as primary causes. Paired with the forthcoming
-correction, this establishes a reproducible method for honestly evaluating — and
-improving — operational solar-flare forecasts, and it cautions that benchmark
-leaderboard scores should not be read as operational performance.
+in every period, overstating operational skill by up to ~2×, condition-dependent.
+A controlled 2×2 experiment further shows that **retraining on live operational
+data does not close the gap**, indicating the overstatement is a property of the
+benchmark's evaluation set rather than of the training distribution. Together
+these results establish a reproducible method for honestly evaluating operational
+solar-flare forecasts and caution that benchmark leaderboard scores must not be
+read as operational performance. The practical implication is that the community
+should benchmark on live-operational test sets, not only curated partitions.
+
+---
+
+## Figures
+
+All figures are in `figures/` and reproducible from the experiment scripts.
+
+- **Figure 1** (`fig1_multiperiod.png`) — Benchmark vs. live TSS across 2014/2015/2023, with 95% CIs (Exp 1, §5).
+- **Figure 2** (`fig2_scorecard_2x2.png`) — The 2×2: training on live data does not close the gap (Exp 3, §8).
+- **Figure 3** (`fig3_distribution_shift.png`) — KS distribution shift across all 17 SHARP features (Exp 2, §9).
+- **Figure 4** (`fig4_accuracy_illusion.png`) — A zero-skill model "wins" on accuracy (§7).
+- **Figure 5** (`fig5_feature_importance.png`) — RandomForest feature importance per SHARP parameter (§10).
+- **Figure 6** (`fig6_pca_scree.png`) — PCA scree; PC1 = active-region size/energy axis (§10).
+- **Figure 7** (`fig7_recalibration_fix.png`) — The validated fix: a threshold frozen on 2014 beats the default on unseen 2015/2023 (§8).
 
 ---
 

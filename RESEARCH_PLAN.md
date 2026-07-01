@@ -74,8 +74,29 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
       periods (benchmark above upper 95% CI). Gap is condition-dependent.
 - [x] Bootstrap 95% CIs on TSS (part of Exp 4) — DONE.
 - [x] Accuracy-illusion demonstration (zero-skill model vs accuracy) — DONE (paper §7).
-- [ ] Exp 2: feature-distribution comparison + KS-tests (diagnose distribution shift).
-- [ ] Exp 3: recalibrate/retrain on live JSOC; before/after on held-out live period.
-- [ ] Exp 4 (remainder): more windows per phase to tighten CIs.
-- [ ] Physics interpretation: PCA / feature-importance of SHARP features.
-- [ ] Final figures (skill-vs-period plot) + verified citations + author names.
+- [x] **Exp 2: feature-distribution KS-tests — DONE.** Raw JSOC 2011 vs 2015: all
+      17/17 SHARP features significantly shifted (median KS D 0.19); operational
+      data has ~2% missing values vs ~0.2% in the benchmark era. Evidences the
+      distribution-shift mechanism. (TODO: obtain raw SWAN-SF tarballs to isolate
+      the curation component from the era component.)
+- [x] **Exp 3: 2×2 (benchmark- vs live-trained × benchmark vs operational test) — DONE.**
+      Benchmarks overstate (gap 0.083 peak TSS); training on live data does NOT
+      close the gap (H₁ᵦ refuted) → gap is an evaluation-set property. Reproducible
+      via `python -m solarflare.scorecard`. (TODO: choose peak-TSS threshold on a
+      validation split, not the test set, to remove mild optimism.)
+- [x] **Exp 4 (the validated fix) — DONE.** Threshold recalibrated on live 2014,
+      frozen, tested on unseen 2015/2023: TSS 0.64→0.835 and 0.33→0.66, CIs
+      non-overlapping in both. Recalibration is a validated deployable correction
+      (`research/exp4_recalibration.py`, Fig 7, paper §8).
+- [ ] More windows per phase to tighten CIs further (optional).
+- [ ] Replicate the gap on a second model family (LightGBM) — generalizability.
+- [x] **Physics interpretation — DONE.** RF feature importance: top 5 params
+      (TOTUSJH, TOTUSJZ, R_VALUE, USFLUX, TOTPOT) = 72% of decisions. PCA: PC1 = 33%
+      (AR size/energy axis). Key insight: most-important features = most-shifted
+      features, explaining operational degradation. (Paper §10.)
+- [x] **Board figures — DONE (6 figures in `figures/`).**
+- [ ] Verified citations + author name(s).
+- [x] **Scorecard optimism fixed in code** — thresholds now chosen on a held-out
+      validation split, not the test set (`scorecard.py` `_val_selected_tss`).
+      TODO (team): re-run `python -m solarflare.scorecard` where the .npz datasets
+      live to refresh skill_scorecard.json + dashboard + Figure 2.
