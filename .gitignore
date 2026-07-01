@@ -5,9 +5,9 @@ data/swansf/*.pkl
 data/swansf/swansf_download
 data/sharp_live/
 *.npz
-models/*.joblib
+# Trained model artifacts are shipped via Git LFS (see .gitattributes) so the
+# deploy gets them. The .pkl duplicates are redundant (the app loads .joblib).
 models/*.pkl
-models/*.meta.json
 .venv/
 .DS_Store
 *.log
