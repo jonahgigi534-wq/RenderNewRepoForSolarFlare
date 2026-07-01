@@ -85,5 +85,10 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
       via `python -m solarflare.scorecard`. (TODO: choose peak-TSS threshold on a
       validation split, not the test set, to remove mild optimism.)
 - [ ] Exp 4 (remainder): more windows per phase to tighten CIs.
-- [ ] Physics interpretation: PCA / feature-importance of SHARP features.
-- [ ] Final figures (skill-vs-period plot) + verified citations + author names.
+- [x] **Physics interpretation — DONE.** RF feature importance: top 5 params
+      (TOTUSJH, TOTUSJZ, R_VALUE, USFLUX, TOTPOT) = 72% of decisions. PCA: PC1 = 33%
+      (AR size/energy axis). Key insight: most-important features = most-shifted
+      features, explaining operational degradation. (Paper §10.)
+- [x] **Board figures — DONE (6 figures in `figures/`).**
+- [ ] Verified citations + author name(s).
+- [ ] Scorecard: choose peak-TSS threshold on a validation split (remove optimism).

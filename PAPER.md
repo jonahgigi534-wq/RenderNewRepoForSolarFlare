@@ -140,7 +140,7 @@ after the training span (2010-05 → 2012-03):
 | 2015 (declining) | 103,850 | 28 | 2,940 | 75 | 2.55% |
 | 2023 (rising max) | 142,259 | 13 | 4,075 | 32 | 0.79% |
 
-**Benchmark vs. live skill (TSS with bootstrap 95% CI, n=1000 resamples).**
+**Benchmark vs. live skill (TSS with bootstrap 95% CI, n=1000 resamples; Figure 1).**
 
 | Operating point | Benchmark | 2014 live | 2015 live | 2023 live |
 |---|---:|---:|---:|---:|
@@ -243,7 +243,7 @@ that actually matters.
 **Second, and more striking: on realistic data, chasing accuracy penalizes
 skill.** Any model that actually catches flares must raise alarms, and at a low
 base rate most alarms are false — which *lowers* accuracy. On our real 2014 Q1
-live test (3,503 windows, 149 flares, 4.25% base rate):
+live test (3,503 windows, 149 flares, 4.25% base rate; Figure 4):
 
 | Model | Catches flares? | TSS | Accuracy |
 |---|---|---:|---:|
@@ -273,7 +273,7 @@ trained in memory; the deployed model was untouched. (Reproducible:
 | Live-trained (JSOC 2014) | 0.914 | **0.799** | **0.115** |
 
 *Benchmark test: held-out SWAN-SF (14,690 windows, 236 flares). Operational test:
-live JSOC 2015 (12,597 windows, 273 flares).*
+live JSOC 2015 (12,597 windows, 273 flares). See Figure 2.*
 
 **Result 1 — benchmarks overstate (H₁ first half: supported).** Even under the
 favorable peak-TSS metric, the benchmark score exceeds operational skill by
@@ -313,7 +313,7 @@ limitation and does not affect the sign of either finding.
 To characterize the distribution shift underlying the gap, we compared the raw
 JSOC distributions of all 17 SHARP parameters between the benchmark training era
 (February 2011; 17,950 records) and the operational year (February 2015; 44,175
-records) using two-sample Kolmogorov–Smirnov tests.
+records) using two-sample Kolmogorov–Smirnov tests (Figure 3).
 
 - **All 17/17 features are significantly shifted** (p < 0.05; most p ≈ 0), median
   KS D = 0.19 — a pervasive, moderate distribution shift between the era the model
@@ -342,7 +342,38 @@ skill.
 
 ---
 
-## 10. Limitations
+## 10. Physics Interpretation — What the Model Learned
+
+**Feature importance (Figure 5).** Aggregating the RandomForest's importances over
+each parameter's 7 summary statistics, five parameters account for **72% of the
+model's decisions**: TOTUSJH (0.20, total unsigned current helicity), TOTUSJZ
+(0.16, total unsigned vertical current), R_VALUE (0.12, flux near the
+polarity-inversion line), USFLUX (0.12, total unsigned flux ≈ region size), and
+TOTPOT (0.11, total magnetic free energy). These are precisely the physically
+motivated flare predictors: large, current-carrying active regions with strong
+polarity-inversion-line fields are the flare-productive ones — consistent with the
+established flare-forecasting literature.
+
+**PCA (Figure 6).** A principal-component analysis of the 119-feature space shows
+PC1 alone explains **33%** of the variance and is dominated by the extensive
+current/flux parameters (TOTUSJZ, TOTUSJH, SAVNCPP, ABSNJZH, USFLUX) — i.e. an
+**"active-region size and magnetic-energy" axis.** PC1–3 capture 52%, and 15 of
+119 components are needed for 90%, indicating a moderately redundant but not
+trivially low-dimensional feature space. (Prior competition work reached a similar
+"dominant factor ≈ region size" conclusion via factor analysis; we recover it
+transparently and note it is one axis of several.)
+
+**The connecting insight.** The parameters the model relies on most (TOTUSJH,
+TOTUSJZ, USFLUX, TOTPOT) are the *same* parameters that shift most between
+benchmark and operational data (Section 9: MEANPOT, TOTPOT, TOTUSJH, USFLUX,
+TOTUSJZ have the largest KS D). **The model leans hardest on exactly the inputs
+that are least stable across regimes** — a direct, physical explanation for why its
+operational skill degrades: its most-trusted magnetic predictors are the ones whose
+distributions differ most between the curated benchmark and live operation.
+
+---
+
+## 11. Limitations
 
 - Each period is a single 3-month window; more windows per solar-cycle phase
   would tighten the estimates.
@@ -355,7 +386,7 @@ skill.
 
 ---
 
-## 11. Conclusion
+## 12. Conclusion
 
 A SHARP-based flare model reporting TSS 0.77 on the SWAN-SF benchmark achieves
 live, out-of-sample TSS of only 0.35–0.64 at its default operating point across
@@ -368,6 +399,19 @@ these results establish a reproducible method for honestly evaluating operationa
 solar-flare forecasts and caution that benchmark leaderboard scores must not be
 read as operational performance. The practical implication is that the community
 should benchmark on live-operational test sets, not only curated partitions.
+
+---
+
+## Figures
+
+All figures are in `figures/` and reproducible from the experiment scripts.
+
+- **Figure 1** (`fig1_multiperiod.png`) — Benchmark vs. live TSS across 2014/2015/2023, with 95% CIs (Exp 1, §5).
+- **Figure 2** (`fig2_scorecard_2x2.png`) — The 2×2: training on live data does not close the gap (Exp 3, §8).
+- **Figure 3** (`fig3_distribution_shift.png`) — KS distribution shift across all 17 SHARP features (Exp 2, §9).
+- **Figure 4** (`fig4_accuracy_illusion.png`) — A zero-skill model "wins" on accuracy (§7).
+- **Figure 5** (`fig5_feature_importance.png`) — RandomForest feature importance per SHARP parameter (§10).
+- **Figure 6** (`fig6_pca_scree.png`) — PCA scree; PC1 = active-region size/energy axis (§10).
 
 ---
 
