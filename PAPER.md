@@ -16,14 +16,16 @@ its performance on the raw, live satellite data it would actually consume — ha
 not been systematically tested. We ask: *do standard benchmark scores overstate
 the real-time operational skill of ML flare forecasts, and does training on live
 satellite data close the gap?* Using a RandomForest model trained on the
-SWAN-SF benchmark, we compare its reported benchmark skill against an honest,
-out-of-sample evaluation built directly from live JSOC/SDO magnetic-field data
-and NOAA/HEK flare records. In a first held-out test (2014 Q1), the model's True
-Skill Statistic (TSS) falls from **0.77 on the benchmark to 0.35 on live data at
-its default operating point** — an overstatement of roughly 2×. We identify five
-mechanisms that inflate benchmark scores and outline a correction based on
-recalibration and training on operational data. *(Multi-period confirmation and
-the correction experiment are in progress.)*
+SWAN-SF benchmark (reported TSS 0.77), we compare its benchmark skill against
+honest, out-of-sample evaluations built directly from live JSOC/SDO
+magnetic-field data and NOAA/HEK flare records, across three periods spanning
+different solar-cycle phases. At the default operating point the model's True
+Skill Statistic falls to **0.35 (2014), 0.64 (2015), and 0.33 (2023)** — the
+benchmark exceeds the upper 95% confidence interval of live skill in every
+period (H₀ rejected), overstating operational skill by up to ~2×, though the size
+of the gap varies with conditions. We identify five mechanisms that inflate
+benchmark scores and outline a correction based on recalibration and training on
+operational data. *(The correction experiment is in progress.)*
 
 ---
 
@@ -119,30 +121,54 @@ point. *(Bootstrap confidence intervals in progress.)*
 
 ---
 
-## 5. Preliminary Results
+## 5. Results
 
-**Test set.** 2014 Q1 live pull: 123,309 SHARP records and 58 M/X flares across
-15 active regions, yielding 3,503 labeled windows with 149 positives (4.25% base
-rate).
+**Test sets.** The SWAN-SF-trained model (benchmark TSS 0.772) was re-scored on
+three out-of-sample live-JSOC periods spanning different solar-cycle phases, all
+after the training span (2010-05 → 2012-03):
 
-**Benchmark vs. live skill.**
+| Period | SHARP records | M/X flares | Windows | Positives | Base rate |
+|---|---:|---:|---:|---:|---:|
+| 2014 (solar max) | 123,309 | 58 | 3,503 | 149 | 4.25% |
+| 2015 (declining) | 103,850 | 28 | 2,940 | 75 | 2.55% |
+| 2023 (rising max) | 142,259 | 13 | 4,075 | 32 | 0.79% |
 
-| Evaluation | TSS | Recall | Precision |
-|---|---:|---:|---:|
-| SWAN-SF benchmark (reported) | **0.772** | 0.805 | 0.286 |
-| Live JSOC — default (balanced) threshold | **0.350** | 0.416 | 0.219 |
-| Live JSOC — high-recall threshold | 0.640 | 0.859 | 0.148 |
-| Live JSOC — high-precision threshold | 0.340 | 0.403 | 0.221 |
+**Benchmark vs. live skill (TSS with bootstrap 95% CI, n=1000 resamples).**
 
-At the model's default operating point, live TSS (0.350) is **less than half**
-the benchmark TSS (0.772). Recall collapses most sharply (0.805 → 0.416),
-consistent with a decision threshold that is mis-placed for the live data
-distribution: at a lower (high-recall) threshold the model recovers TSS 0.640 on
-the same live data, indicating that much of the discriminative signal survives
-but the *calibration* does not transfer from benchmark to operation.
+| Operating point | Benchmark | 2014 live | 2015 live | 2023 live |
+|---|---:|---:|---:|---:|
+| **balanced (default)** | **0.772** | 0.350 [0.27–0.43] | 0.641 [0.54–0.74] | 0.334 [0.17–0.52] |
+| high-recall | — | 0.640 [0.58–0.70] | 0.831 [0.77–0.88] | 0.662 [0.55–0.75] |
+| high-precision | — | 0.340 [0.26–0.42] | 0.602 [0.49–0.71] | 0.339 [0.17–0.52] |
 
-These results support H₁ for a single period. Multi-period confirmation across
-solar-cycle phases is required before rejecting H₀. *(In progress.)*
+Precision at the default operating point: 2014 = 0.219, 2015 = 0.407,
+2023 = **0.043** (at 0.79% base rate the model still catches 91% of flares at the
+high-recall point, but precision collapses — a direct demonstration of the
+rare-event precision ceiling).
+
+**Findings.**
+1. **The benchmark overstates live skill in every period.** At the default
+   operating point, the benchmark TSS (0.772) lies *above the upper 95% CI* of the
+   live TSS in all three periods (upper bounds 0.43, 0.74, 0.52) — so H₀ is
+   rejected at the 5% level in each case. Mean live default TSS ≈ 0.44, an
+   overstatement of ~1.75×.
+2. **The gap is condition-dependent, not a fixed factor.** It is largest at
+   solar max (2014: 0.35; 2023: 0.33 — roughly 2× overstated) and smallest in the
+   declining phase (2015: 0.64, approaching the benchmark). A single benchmark
+   number is therefore an unreliable predictor of operational skill, and the
+   discrepancy itself varies with observing conditions.
+3. **Calibration, not raw discrimination, drives much of the loss.** In every
+   period the high-recall threshold yields substantially higher live TSS than the
+   default (e.g., 2014: 0.64 vs 0.35), showing the model retains discriminative
+   signal but the benchmark-tuned threshold is mis-placed for the live
+   distribution.
+4. **Precision tracks the base rate.** At the lowest base rate (2023, 0.79%),
+   default precision falls to 0.043, illustrating that operational usefulness
+   degrades sharply as events become rarer — an effect invisible to benchmark or
+   balanced-data evaluation.
+
+These results support H₁ across multiple periods and reject H₀. The 2023 estimate
+has wide CIs (only 32 positives) and should be read as indicative.
 
 ---
 
@@ -233,22 +259,28 @@ threshold, at improved precision.
 
 ## 9. Limitations
 
-- Results to date cover a **single** 3-month period (2014 Q1); the gap must be
-  confirmed across multiple solar-cycle phases.
-- Solar-minimum periods contain few M+ flares, limiting statistical power there.
+- Each period is a single 3-month window; more windows per solar-cycle phase
+  would tighten the estimates.
+- Low-activity periods contain few M+ flares (2023: 32 positives), widening
+  confidence intervals — the 2023 result is indicative, not definitive.
 - TSS depends on operating point; comparisons are reported per threshold.
-- The correction experiments are not yet complete.
+- All results use one model architecture (RandomForest); generality across model
+  families is untested.
+- The correction experiment (Section 8) is not yet complete.
 
 ---
 
-## 10. Conclusion *(preliminary)*
+## 10. Conclusion
 
 A SHARP-based flare model reporting TSS 0.77 on the SWAN-SF benchmark achieves
-TSS 0.35 on out-of-sample live satellite data at its default operating point — a
-~2× overstatement — with evidence pointing to distribution shift and
-non-transferable calibration as primary causes. If confirmed across periods and
-paired with an effective correction, this establishes a reproducible method for
-honestly evaluating — and improving — operational solar-flare forecasts.
+live, out-of-sample TSS of only 0.35–0.64 at its default operating point across
+three solar-cycle phases — the benchmark exceeds the upper 95% CI of live skill
+in every period, overstating operational skill by up to ~2×. The gap is
+condition-dependent, and evidence points to distribution shift and
+non-transferable calibration as primary causes. Paired with the forthcoming
+correction, this establishes a reproducible method for honestly evaluating — and
+improving — operational solar-flare forecasts, and it cautions that benchmark
+leaderboard scores should not be read as operational performance.
 
 ---
 

@@ -69,9 +69,13 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
 
 ## Status / to-do
 - [x] Preliminary gap measured (2014 Q1).
-- [ ] Exp 1: multi-period live re-scores (2014 / 2018 / 2023).
-- [ ] Exp 2: feature-distribution comparison + KS-tests.
-- [ ] Exp 3: recalibrate on live JSOC; before/after on held-out live period.
-- [ ] Exp 4: bootstrap CIs; robustness across solar-cycle phases.
+- [x] **Exp 1: multi-period live re-scores (2014 / 2015 / 2023) — DONE.** Benchmark
+      TSS 0.77 vs live default TSS 0.35 / 0.64 / 0.33; H₀ rejected in all three
+      periods (benchmark above upper 95% CI). Gap is condition-dependent.
+- [x] Bootstrap 95% CIs on TSS (part of Exp 4) — DONE.
+- [x] Accuracy-illusion demonstration (zero-skill model vs accuracy) — DONE (paper §7).
+- [ ] Exp 2: feature-distribution comparison + KS-tests (diagnose distribution shift).
+- [ ] Exp 3: recalibrate/retrain on live JSOC; before/after on held-out live period.
+- [ ] Exp 4 (remainder): more windows per phase to tighten CIs.
 - [ ] Physics interpretation: PCA / feature-importance of SHARP features.
-- [ ] Final "accuracy vs benchmark-TSS vs live-TSS" comparison table + figures.
+- [ ] Final figures (skill-vs-period plot) + verified citations + author names.
