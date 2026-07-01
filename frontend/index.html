@@ -491,7 +491,8 @@
     <p class="map-caption" id="sharp-status">—</p>
     <div style="margin:8px 0;font-size:13px">
       <span style="color:var(--text-faint)">Test a past date (UTC):</span>
-      <input id="sharp-date" type="datetime-local" value="2014-10-24T12:00" min="2010-05-01T00:00" style="background:#0a1326;border:1px solid #24304a;color:var(--text);border-radius:6px;padding:3px 7px;width:200px">
+      <input id="sharp-date" type="datetime-local" value="2014-10-24T12:00" min="2010-05-01T00:00" max="2026-05-25T23:00" style="background:#0a1326;border:1px solid #24304a;color:var(--text);border-radius:6px;padding:3px 7px;width:200px">
+      <span style="color:var(--text-faint);font-size:12px">(data: May 2010 – May 25 2026; any time works)</span>
       <button onclick="loadSharpLive((document.getElementById('sharp-date').value||'').trim()||undefined)" style="background:#1b2942;border:1px solid #2c3d5e;color:var(--text);border-radius:6px;padding:3px 12px;cursor:pointer">Test</button>
     </div>
     <table class="tracks" id="sharp-table" hidden aria-label="Live per-region SHARP flare probabilities">
