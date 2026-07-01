@@ -301,6 +301,16 @@ skill (which collapses due to non-transferable calibration). An operational syst
 uses a fixed threshold, so Section 5 reflects real deployment; the scorecard
 isolates the model's latent discriminative ceiling.
 
+**Most of the lost skill is recoverable — by calibration, not retraining.** The
+large default-threshold drop (0.77 → 0.35) is dominated by *miscalibration*, not by
+loss of discriminative ability: at a properly chosen threshold the model's
+operational skill rises to **TSS ≈ 0.82** (peak; the honest validation-selected
+value is pending regeneration and is expected to fall between 0.35 and 0.82). The
+discriminative signal therefore largely survives operation — what fails to transfer
+is the *threshold*. Re-selecting the operating point recovers most of the real-world
+skill, whereas retraining on live data does not (operational TSS 0.822 → 0.799).
+The actionable fix is **recalibration on operational data**, not more training data.
+
 **Metric note.** The numbers above use *peak TSS* (threshold maximised per test
 set), which is mildly optimistic because it peeks at test labels. The scorecard
 code has since been corrected to select the threshold on a held-out **validation**
