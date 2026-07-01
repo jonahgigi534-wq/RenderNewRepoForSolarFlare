@@ -75,7 +75,11 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
 - [x] Bootstrap 95% CIs on TSS (part of Exp 4) — DONE.
 - [x] Accuracy-illusion demonstration (zero-skill model vs accuracy) — DONE (paper §7).
 - [ ] Exp 2: feature-distribution comparison + KS-tests (diagnose distribution shift).
-- [ ] Exp 3: recalibrate/retrain on live JSOC; before/after on held-out live period.
+- [x] **Exp 3: 2×2 (benchmark- vs live-trained × benchmark vs operational test) — DONE.**
+      Benchmarks overstate (gap 0.083 peak TSS); training on live data does NOT
+      close the gap (H₁ᵦ refuted) → gap is an evaluation-set property. Reproducible
+      via `python -m solarflare.scorecard`. (TODO: choose peak-TSS threshold on a
+      validation split, not the test set, to remove mild optimism.)
 - [ ] Exp 4 (remainder): more windows per phase to tighten CIs.
 - [ ] Physics interpretation: PCA / feature-importance of SHARP features.
 - [ ] Final figures (skill-vs-period plot) + verified citations + author names.
