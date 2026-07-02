@@ -1,0 +1,23 @@
+# Offline gate for the auto-served main branch: compiles every module, checks
+# the pure-math core against known answers, and validates the committed JSON
+# artifact contracts. The full regression/smoke suites need live NOAA/JSOC and
+# run on the dev machines instead (scripts/regression_test.py, smoke_test.py).
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false        # models not needed offline; LFS bandwidth is metered
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python scripts/offline_test.py
