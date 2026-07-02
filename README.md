@@ -121,6 +121,42 @@ Training writes three artifacts to `models/`:
 | `flare_sharp_model.pkl` | same payload, plain pickle (you asked for `.pkl`) |
 | `flare_sharp_model.meta.json` | human-readable metrics + provenance |
 
+### Rebuilding the research datasets (fresh clone — read before `reproduce`)
+
+**Honest cost note:** `python -m solarflare.reproduce` regenerates every research
+artifact *from datasets that are gitignored*. A fresh clone must rebuild them
+first — external downloads plus several hours of JSOC queries. It is "one
+command" only once the datasets below exist in `data/sharp_live/`.
+
+```bash
+# 1. SWAN-SF benchmark partition (manual): download partition1_instances.tar.gz
+#    from Harvard Dataverse doi:10.7910/DVN/EBCFKM (~1 GB) into data/swansf_full/,
+#    then convert (~minutes):
+python -m solarflare.swansf_data --tars data/swansf_full/partition1_instances.tar.gz \
+    --out data/sharp_live/dataset_swansf_p1.npz
+
+# 2. JSOC operational years (network-heavy: ~15-40 min per year):
+python -m solarflare.sharpdata --start 2013-01-01 --end 2014-01-01 --out data/sharp_live/dataset_2013.npz
+#    ... repeat for 2011, 2012, 2014, 2015, 2016, 2017 (2023 exists but is
+#    excluded from label-dependent scoring — see scorecard.label_attribution_by_year
+#    in config.yaml; scripts/label_attribution.py measures the rates).
+
+# 3. Cleaned SWAN-SF .pkl partitions for the benchmark model (Google Drive, ~1.2 GB):
+python -m solarflare.download
+```
+
+Expected shapes (sanity check — window arrays are `(n, 60, 17)`; counts within
+a few % of these mean your build matches ours):
+
+| Dataset | Windows | Positives |
+|---|---|---|
+| `dataset_swansf_p1.npz` (test split shown) | 14,690 held-out | 236 |
+| `dataset_2013.npz` | 13,431 | 170 |
+| `dataset_2014.npz` | 14,675 | 347 |
+| `dataset_2015.npz` | 12,597 | 273 |
+| `dataset_2016.npz` | 7,440 | 25 |
+| `dataset_2017.npz` | 3,474 | 43 |
+
 ---
 
 ## How it avoids "cheating"
