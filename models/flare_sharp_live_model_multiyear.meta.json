@@ -81,6 +81,49 @@
           "fn": 27
         }
       }
+    },
+    "operational": {
+      "threshold": 0.021,
+      "calibrated_on_year": 2015,
+      "calibrated_at": "2026-07-02T05:18:38.727358+00:00",
+      "calibration_report": {
+        "n": 12597,
+        "positives": 273,
+        "accuracy": 0.9102961022465667,
+        "recall": 0.9230769230769231,
+        "precision": 0.18515797207935342,
+        "specificity": 0.910012982797793,
+        "f1": 0.30844553243574047,
+        "tss": 0.8330899058747161,
+        "hss": 0.2825439134468717,
+        "confusion": {
+          "tp": 252,
+          "tn": 11215,
+          "fp": 1109,
+          "fn": 21
+        }
+      },
+      "transfer_check": {
+        "2016": {
+          "frozen_tss_training_val_thr": 0.877,
+          "frozen_tss_recalibrated_thr": 0.896,
+          "n": 7440,
+          "positives": 25
+        },
+        "2017": {
+          "frozen_tss_training_val_thr": 0.823,
+          "frozen_tss_recalibrated_thr": 0.868,
+          "n": 3474,
+          "positives": 43
+        },
+        "2023": {
+          "frozen_tss_training_val_thr": 0.679,
+          "frozen_tss_recalibrated_thr": 0.726,
+          "n": 17359,
+          "positives": 86
+        }
+      },
+      "note": "threshold recalibrated on one operational year of live JSOC data; opt in via config sharp_live.operating_point: operational"
     }
   },
   "keywords": [

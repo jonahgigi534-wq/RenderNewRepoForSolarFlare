@@ -24,19 +24,19 @@
     "2015": {
       "noaa_official": {
         "n_days": 361,
-        "flare_days": 63,
-        "base_rate": 0.175,
-        "brier": 0.132,
-        "brier_skill_vs_climatology": 0.084,
-        "peak_tss": 0.445
+        "flare_days": 67,
+        "base_rate": 0.186,
+        "brier": 0.1356,
+        "brier_skill_vs_climatology": 0.103,
+        "peak_tss": 0.434
       },
       "helios_deployed": {
         "n_days": 361,
-        "flare_days": 63,
-        "base_rate": 0.175,
-        "brier": 0.1264,
-        "brier_skill_vs_climatology": 0.123,
-        "peak_tss": 0.455
+        "flare_days": 67,
+        "base_rate": 0.186,
+        "brier": 0.1339,
+        "brier_skill_vs_climatology": 0.114,
+        "peak_tss": 0.458
       }
     },
     "2016": {
@@ -73,6 +73,24 @@
         "brier": 0.0347,
         "brier_skill_vs_climatology": 0.147,
         "peak_tss": 0.677
+      }
+    },
+    "2023": {
+      "noaa_official": {
+        "n_days": 363,
+        "flare_days": 137,
+        "base_rate": 0.377,
+        "brier": 0.2077,
+        "brier_skill_vs_climatology": 0.116,
+        "peak_tss": 0.285
+      },
+      "helios_deployed": {
+        "n_days": 363,
+        "flare_days": 137,
+        "base_rate": 0.377,
+        "brier": 0.223,
+        "brier_skill_vs_climatology": 0.051,
+        "peak_tss": 0.323
       }
     }
   }

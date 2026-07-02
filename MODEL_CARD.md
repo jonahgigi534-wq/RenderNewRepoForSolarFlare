@@ -19,6 +19,18 @@ the "Model Cards for Model Reporting" practice (Mitchell et al., 2019).
 **Intended use:** research/education dashboard guidance alongside official NOAA
 SWPC products — never as the sole input to an operational decision.
 
+**Operating points:** trained with high_recall / balanced / high_precision
+(validation-tuned). `python -m solarflare.recalibrate` adds an **operational**
+point — the threshold recalibrated on one year of live JSOC data (the
+self-correcting-deployment feature; provenance saved in the artifact). Select
+via `sharp_live.operating_point` in config.yaml.
+
+**Variant:** `flare_sharp_live_model_multiyear.joblib` — same pipeline trained
+on JSOC 2011+2012+2014 (test TSS 0.83); runs live via
+`/api/sharp_live?variant=multiyear` for side-by-side comparison. The default
+deployed artifact is never modified by variant training or recalibration of a
+variant.
+
 **Known limitations**
 - Trained on solar-cycle-24 rising phase (2010–2012); skill degrades on other
   cycle phases (quantified in `skill_scorecard.json`).

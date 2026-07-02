@@ -40,6 +40,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import datetime
 
 import numpy as np
 
@@ -99,7 +100,8 @@ def _ci(samples, level: float):
 
 
 def bootstrap_sets(y_by_set: dict, p_by_set_model: dict, thr_by_model: dict,
-                   groups_by_set: dict, B: int, rng) -> dict:
+                   groups_by_set: dict, B: int, rng,
+                   thr2_by_model: dict | None = None) -> dict:
     """CLUSTER bootstrap by active region: windows of the same region overlap in
     time and are strongly correlated, so the honest resampling unit is the whole
     region, not the row (i.i.d. rows would give dishonestly narrow CIs).
@@ -108,8 +110,16 @@ def bootstrap_sets(y_by_set: dict, p_by_set_model: dict, thr_by_model: dict,
     (paired — the fair way to compare models); different sets resample
     independently (they are independent samples).
 
-    Returns  boot[set][model] = {"peak": ndarray(B), "frozen": ndarray(B)}."""
-    boot = {s: {m: {"peak": np.empty(B), "frozen": np.empty(B)}
+    `thr2_by_model` optionally supplies a SECOND frozen threshold per model
+    (e.g. the operationally-recalibrated one); its scores land in "frozen2" on
+    the same replicates, so frozen2 − frozen is a PAIRED recovery estimate.
+
+    Returns  boot[set][model] = {"peak": ndarray(B), "frozen": ndarray(B)
+                                 [, "frozen2": ndarray(B)]}."""
+    thr2_by_model = thr2_by_model or {}
+    boot = {s: {m: ({"peak": np.empty(B), "frozen": np.empty(B), "frozen2": np.empty(B)}
+                    if m in thr2_by_model else
+                    {"peak": np.empty(B), "frozen": np.empty(B)})
                 for m in thr_by_model} for s in y_by_set}
     for s, y in y_by_set.items():
         g = np.asarray(groups_by_set[s])
@@ -123,6 +133,8 @@ def bootstrap_sets(y_by_set: dict, p_by_set_model: dict, thr_by_model: dict,
                 pb = p_by_set_model[s][m][idx]
                 boot[s][m]["peak"][b] = peak_tss(yb, pb)
                 boot[s][m]["frozen"][b] = frozen_tss(yb, pb, thr_by_model[m])
+                if m in thr2_by_model:
+                    boot[s][m]["frozen2"][b] = frozen_tss(yb, pb, thr2_by_model[m])
     return boot
 
 
@@ -180,16 +192,35 @@ def run(cfg: dict | None = None) -> dict:
     models = {"Benchmark-trained": v2, "Live-trained": v1}
     details = {"Benchmark-trained": "SWAN-SF 2010-2012", "Live-trained": "JSOC live data (2014)"}
 
+    # Benchmark test split, loaded EARLY: the multi-year model's live 2011/2012
+    # training data overlaps SWAN-SF p1 in both time and region ids (SWAN-SF's
+    # ar<N> = HARPNUM), so its regions must be excluded from that model's
+    # training set or the benchmark column would be scored on training regions.
+    dp = sharpdata.load_dataset(os.path.join(dd, "dataset_swansf_p1.npz"))
+    _, _, ite = sharptrain.time_group_split(dp["groups"], dp["end_times"],
+                                            cfg["sharp_live"]["split"])
+    bench_test_regions = np.unique(dp["groups"][ite])
+
     # Optional third model — does MORE live data close the gap? Trains on every
     # pre-2015 live year on disk; scored only on strictly-later years.
     MULTI = "Live-trained (multi-year)"
     multi_train_years = [y for y in (2011, 2012, 2014)
                          if os.path.exists(os.path.join(dd, f"dataset_{y}.npz"))]
+    multi_dropped = 0
     if bool(sc.get("include_multiyear_live", True)) and len(multi_train_years) >= 2:
         print(f"Training live model (JSOC {'+'.join(map(str, multi_train_years))}) ...",
               flush=True)
-        parts = [sharpdata.load_dataset(os.path.join(dd, f"dataset_{y}.npz"))
-                 for y in multi_train_years]
+        parts = []
+        for y in multi_train_years:
+            p = sharpdata.load_dataset(os.path.join(dd, f"dataset_{y}.npz"))
+            keep = ~np.isin(p["groups"], bench_test_regions)   # leakage guard
+            multi_dropped += int((~keep).sum())
+            parts.append({"X3d": p["X3d"][keep], "y": p["y"][keep],
+                          "groups": p["groups"][keep],
+                          "end_times": [t for t, k in zip(p["end_times"], keep) if k]})
+        if multi_dropped:
+            print(f"  leakage guard: dropped {multi_dropped} training windows from "
+                  f"regions in the benchmark test split", flush=True)
         d_multi = {"X3d": np.concatenate([p["X3d"] for p in parts]),
                    "y": np.concatenate([p["y"] for p in parts]),
                    "groups": np.concatenate([p["groups"] for p in parts]),
@@ -202,11 +233,9 @@ def run(cfg: dict | None = None) -> dict:
     thr = {m: float(v["operating_points"]["high_recall"]["threshold"])
            for m, v in models.items()}
 
-    # BENCHMARK test = held-out region-disjoint split of SWAN-SF p1 (neither model
-    # trained on those exact windows). OPERATIONAL tests = every unseen JSOC year.
-    dp = sharpdata.load_dataset(os.path.join(dd, "dataset_swansf_p1.npz"))
-    _, _, ite = sharptrain.time_group_split(dp["groups"], dp["end_times"],
-                                            cfg["sharp_live"]["split"])
+    # BENCHMARK test = held-out region-disjoint split of SWAN-SF p1 (no model
+    # trained on those regions — see the leakage guard above). OPERATIONAL
+    # tests = every unseen JSOC year.
     y_by_set = {"benchmark": dp["y"][ite]}
     X_by_set = {"benchmark": dataio.build_matrix(dp["X3d"][ite], cfg)}
     groups_by_set = {"benchmark": dp["groups"][ite]}
@@ -224,10 +253,6 @@ def run(cfg: dict | None = None) -> dict:
     p_by_set_model = {s: {m: v["model"].predict_proba(X_by_set[s])[:, 1]
                           for m, v in models.items()} for s in y_by_set}
 
-    print(f"Bootstrapping ({B} replicates, {int(level*100)}% CI, cluster-by-region) ...",
-          flush=True)
-    boot = bootstrap_sets(y_by_set, p_by_set_model, thr, groups_by_set, B, rng)
-
     op_sets = [str(yr) for yr in years]
 
     def _valid_sets(model_name: str) -> list[str]:
@@ -237,6 +262,32 @@ def run(cfg: dict | None = None) -> dict:
             cut = max(multi_train_years) if multi_train_years else 2014
             return [s for s in op_sets if int(s) > cut]
         return op_sets
+
+    # Self-correction experiment (mirrors `python -m solarflare.recalibrate`,
+    # in-memory only): recalibrate each model's threshold on its EARLIEST
+    # operational year strictly after its own training span, then freeze that
+    # threshold for the strictly-later years.
+    def _cutoff_year(payload) -> int:
+        try:
+            return datetime.fromisoformat(str(payload["data_span"][1]).replace("Z", "+00:00")).year
+        except (KeyError, IndexError, ValueError, TypeError):
+            return 2014
+    recal = {}
+    for m, v in models.items():
+        after = [s for s in _valid_sets(m) if int(s) > _cutoff_year(v)]
+        if len(after) < 2:
+            continue                                  # need a cal year AND eval years
+        cal = after[0]
+        thr_r, _ = ev.best_threshold(y_by_set[cal], p_by_set_model[cal][m], "tss")
+        recal[m] = {"cal_year": int(cal), "threshold": float(thr_r),
+                    "eval_years": after[1:]}
+        print(f"  recalibrated {m}: thr {thr[m]:.3f} -> {thr_r:.3f} "
+              f"(on {cal}; eval {after[1:]})", flush=True)
+
+    print(f"Bootstrapping ({B} replicates, {int(level*100)}% CI, cluster-by-region) ...",
+          flush=True)
+    boot = bootstrap_sets(y_by_set, p_by_set_model, thr, groups_by_set, B, rng,
+                          thr2_by_model={m: r["threshold"] for m, r in recal.items()})
 
     rows = []
     for m, v in models.items():
@@ -264,6 +315,42 @@ def run(cfg: dict | None = None) -> dict:
         op_frozen = float(np.mean([by_year[s]["frozen_tss"] for s in sets_m]))
         gap_boot = boot["benchmark"][m]["peak"] - op_peak_boot
         gap_frozen_boot = boot["benchmark"][m]["frozen"] - op_frozen_boot
+
+        # Self-corrected deployment: the recalibrated threshold frozen on the
+        # strictly-later years, with a PAIRED recovery CI (same replicates).
+        recal_block = None
+        r_info = recal.get(m)
+        if r_info:
+            ev_yrs = r_info["eval_years"]
+            by_year_recal = {
+                s: {"frozen_tss": round(frozen_tss(y_by_set[s], p_by_set_model[s][m],
+                                                   r_info["threshold"]), 3),
+                    "frozen_ci": _ci(boot[s][m]["frozen2"], level)}
+                for s in ev_yrs}
+            recal_op_boot = np.mean([boot[s][m]["frozen2"] for s in ev_yrs], axis=0)
+            before_boot = np.mean([boot[s][m]["frozen"] for s in ev_yrs], axis=0)
+            recal_op = float(np.mean([by_year_recal[s]["frozen_tss"] for s in ev_yrs]))
+            before = float(np.mean([frozen_tss(y_by_set[s], p_by_set_model[s][m], thr[m])
+                                    for s in ev_yrs]))
+            recal_block = {
+                "calibrated_on": r_info["cal_year"],
+                "threshold": round(r_info["threshold"], 3),
+                "eval_years": [int(s) for s in ev_yrs],
+                "operational_tss": round(recal_op, 3),
+                "operational_ci": _ci(recal_op_boot, level),
+                "before_tss_same_years": round(before, 3),
+                "recovery": round(recal_op - before, 3),
+                "recovery_ci": _ci(recal_op_boot - before_boot, level),
+                # Before/after gaps on the SAME eval years (the headline gap
+                # averages more/earlier years — juxtaposing it against gap_after
+                # would conflate the year set change with the recalibration).
+                "gap_before_same_years": round(b_frozen - before, 3),
+                "gap_before_same_years_ci": _ci(boot["benchmark"][m]["frozen"] - before_boot, level),
+                "gap_after": round(b_frozen - recal_op, 3),
+                "gap_after_ci": _ci(boot["benchmark"][m]["frozen"] - recal_op_boot, level),
+                "by_year": by_year_recal,
+            }
+
         rows.append({
             "name": m, "detail": details[m],
             "operational_years_used": [int(s) for s in sets_m],
@@ -284,6 +371,7 @@ def run(cfg: dict | None = None) -> dict:
                 "gap": round(b_frozen - op_frozen, 3),
                 "gap_ci": _ci(gap_frozen_boot, level),
             },
+            "recalibrated": recal_block,
             "by_year": by_year,
             "_gap_boot": gap_boot,                # internal, stripped before writing
             "_gap_frozen_boot": gap_frozen_boot,
@@ -315,6 +403,36 @@ def run(cfg: dict | None = None) -> dict:
             "more_data_closes_gap": bool(multi["gap"] < live_gap_same),
             "single_minus_multi_gap_ci": _ci(diff_boot, level),
         }
+    # The self-correction story: does recalibrating the threshold on ONE
+    # operational year recover the lost skill — and does combining that with
+    # multi-year live training close the gap entirely?
+    recal_findings = None
+    if bench.get("recalibrated"):
+        rb = bench["recalibrated"]
+        recal_findings = {
+            "benchmark_trained": {
+                "recovery": rb["recovery"], "recovery_ci": rb["recovery_ci"],
+                "gap_before_same_years": rb["gap_before_same_years"],
+                "gap_after": rb["gap_after"], "gap_after_ci": rb["gap_after_ci"],
+                "recovers_significantly": bool(rb["recovery_ci"][0] > 0),
+            },
+        }
+        if multi is not None and multi.get("recalibrated"):
+            mb = multi["recalibrated"]
+            recal_findings["combined_fix"] = {
+                "description": "multi-year live training + one-year threshold recalibration",
+                "operational_tss": mb["operational_tss"],
+                "operational_ci": mb["operational_ci"],
+                "recovery": mb["recovery"], "recovery_ci": mb["recovery_ci"],
+                "gap_before_same_years": mb["gap_before_same_years"],
+                "gap_after": mb["gap_after"], "gap_after_ci": mb["gap_after_ci"],
+                # "Closed" requires the POINT estimate at/below zero — a CI that
+                # merely spans zero is absence of evidence, not evidence of
+                # absence, and is reported separately as not-significant.
+                "gap_closed": bool(mb["gap_after"] <= 0),
+                "gap_not_significant": bool(mb["gap_after_ci"][0] <= 0 <= mb["gap_after_ci"][1]),
+            }
+
     for r in rows:
         r.pop("_gap_boot"), r.pop("_gap_frozen_boot")
 
@@ -343,6 +461,10 @@ def run(cfg: dict | None = None) -> dict:
             "climatology_note": "a constant-probability (climatology) forecast has "
                                 "TSS = 0 by construction — the zero line IS the "
                                 "climatology baseline",
+            "leakage_guard": f"multi-year live training excluded {int(multi_dropped)} "
+                             "windows from regions present in the benchmark test split "
+                             "(live 2011/2012 JSOC data overlaps SWAN-SF p1 in time and "
+                             "region ids)",
         },
         "test_sets": {
             "benchmark": f"held-out SWAN-SF magnetograms ({int(len(y_by_set['benchmark']))} windows, "
@@ -365,6 +487,7 @@ def run(cfg: dict | None = None) -> dict:
             "live_training_closes_gap": bool(live["gap"] < bench["gap"]),
             "live_minus_benchmark_gap_ci": closes_ci,
             "more_live_data": more_data,
+            "recalibration": recal_findings,
         },
     }
     path = os.path.join(root, "skill_scorecard.json")

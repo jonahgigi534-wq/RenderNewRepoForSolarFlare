@@ -389,6 +389,12 @@ sharp_live:
   random_state: 42
   model_path: models/flare_sharp_live_model.joblib
   cache_minutes: 15               # reuse a live result this long (avoid re-hitting JSOC)
+  # Which saved operating point the LIVE predictor uses. "operational" is the
+  # self-corrected point written by `python -m solarflare.recalibrate` (threshold
+  # recalibrated on one year of real operational data — the research finding
+  # applied to our own product). Falls back to the training default if the
+  # artifact doesn't have the requested point yet.
+  operating_point: balanced       # balanced | high_recall | high_precision | operational
   # Additional deployable models, saved SEPARATELY from the default above (never
   # overwrites it). The dashboard can run either live and compare them — this is
   # the research finding (does more live training data help?) made tangible as a
@@ -408,6 +414,13 @@ scorecard:
   bootstrap_replicates: 1000
   ci_level: 0.95
   reliability_bins: 10
+  random_state: 42
+
+# Dose-response experiment (python -m solarflare.experiments.dose_response):
+# gap vs. amount of live training data, fixed post-2014 test years.
+dose_response:
+  bootstrap_replicates: 500
+  ci_level: 0.95
   random_state: 42
 
 # Storm-model generalisation check (python -m solarflare.storm_scorecard):

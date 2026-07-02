@@ -203,7 +203,11 @@ def run(cfg: dict | None = None, years: list[int] | None = None) -> dict:
     per_year = {}
     for yr in years:
         print(f"=== {yr} ===", flush=True)
-        noaa = fetch_rsga_year(yr, dd)
+        try:
+            noaa = fetch_rsga_year(yr, dd)
+        except Exception as exc:                      # noqa: BLE001 (skip the year, keep the rest)
+            print(f"  RSGA fetch failed for {yr} ({type(exc).__name__}) — year skipped", flush=True)
+            continue
         ours = daily_fulldisk_ours(yr, dd, cfg)
         t0 = datetime(yr, 1, 1, tzinfo=timezone.utc)
         t1 = datetime(yr + 1, 1, 2, tzinfo=timezone.utc)

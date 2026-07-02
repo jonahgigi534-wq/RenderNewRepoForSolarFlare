@@ -97,6 +97,37 @@ def write_results_md(cfg: dict) -> str:
                 f"single-year gap {_num(md.get('single_year_gap_same_years'))} vs multi-year gap "
                 f"{_num(md.get('multi_year_gap'))} — closes it: **{md.get('more_data_closes_gap')}** "
                 f"(difference CI {md.get('single_minus_multi_gap_ci')}).")
+        rc = f.get("recalibration") or {}
+        bt = rc.get("benchmark_trained")
+        if bt:
+            add(f"- SELF-CORRECTION (threshold recalibrated on the first operational year, "
+                f"frozen for the later years): benchmark-trained gap "
+                f"{_num(bt.get('gap_before_same_years'))} → {_num(bt.get('gap_after'))}"
+                f"{_ci(bt.get('gap_after_ci'))} on the SAME eval years; recovery "
+                f"{_num(bt.get('recovery'))}{_ci(bt.get('recovery_ci'))} — significant: "
+                f"**{bt.get('recovers_significantly')}**.")
+        cf = rc.get("combined_fix")
+        if cf:
+            closed = ("**gap closed** (point estimate ≤ 0)" if cf.get("gap_closed") else
+                      "remaining gap statistically indistinguishable from zero (CI spans 0 — "
+                      "absence of evidence, not proof of closure)" if cf.get("gap_not_significant")
+                      else f"gap remains {_num(cf.get('gap_after'))}")
+            add(f"- COMBINED FIX ({cf.get('description')}): operational TSS "
+                f"{_num(cf.get('operational_tss'), '.3f')} (CI {cf.get('operational_ci')}); gap "
+                f"{_num(cf.get('gap_before_same_years'))} → {_num(cf.get('gap_after'))}"
+                f"{_ci(cf.get('gap_after_ci'))} on the same eval years — {closed}.")
+        add("")
+        add("Self-corrected deployment per model (recalibrate once, freeze, apply forward):")
+        add("")
+        add("| Model | Calibrated on | Eval years | TSS before | TSS after | Recovery |")
+        add("|---|---|---|---|---|---|")
+        for m in sc.get("models", []):
+            r = m.get("recalibrated")
+            if not r:
+                continue
+            add(f"| {m['name']} | {r['calibrated_on']} | "
+                f"{'/'.join(map(str, r['eval_years']))} | {_num(r['before_tss_same_years'], '.3f')} | "
+                f"**{_num(r['operational_tss'], '.3f')}** | {_num(r['recovery'])}{_ci(r['recovery_ci'])} |")
         add("")
         add("Per-year peak TSS (benchmark-trained model):")
         add("")
@@ -110,6 +141,22 @@ def write_results_md(cfg: dict) -> str:
         add("")
         add(f"*Method: {sc.get('method', {}).get('bootstrap', '')}. "
             f"{sc.get('method', {}).get('climatology_note', '')}.*")
+        add("")
+
+    dose = _read(root, "dose_response.json")
+    if dose and dose.get("steps"):
+        add("## 1b. Dose-response: gap vs. amount of live training data")
+        add("")
+        add(f"Fixed test years {dose.get('test_years')} for every step; {dose.get('method', '')}")
+        add("")
+        add("| Training years | n windows | Benchmark TSS | Operational TSS | Gap (peak) | Gap (frozen) |")
+        add("|---|---|---|---|---|---|")
+        for s in dose["steps"]:
+            ys = s.get("train_years", [])
+            add(f"| {'+'.join(map(str, ys))} | {s.get('n_train')} | "
+                f"{_num(s.get('benchmark_tss'), '.3f')} | {_num(s.get('operational_tss'), '.3f')}"
+                f" (CI {s.get('operational_ci')}) | **{_num(s.get('gap'))}**{_ci(s.get('gap_ci'))} | "
+                f"{_num(s.get('frozen_gap'))}{_ci(s.get('frozen_gap_ci'))} |")
         add("")
 
     if storm:
@@ -195,6 +242,7 @@ def run(results_only: bool = False) -> dict:
             ("storm_scorecard", lambda: __import__("solarflare.storm_scorecard", fromlist=["run"]).run(cfg)),
             ("gap_diagnosis", lambda: __import__("solarflare.experiments.gap_diagnosis", fromlist=["run"]).run(cfg)),
             ("noaa_baseline", lambda: __import__("solarflare.experiments.noaa_baseline", fromlist=["run"]).run(cfg)),
+            ("dose_response", lambda: __import__("solarflare.experiments.dose_response", fromlist=["run"]).run(cfg)),
         ]
         for name, fn in steps:
             print(f"\n===== {name} =====", flush=True)

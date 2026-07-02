@@ -295,6 +295,23 @@ def main() -> int:
           len(ib.get("historical", [])))
     check("demo alert path exists (not fired here)", callable(getattr(almod, "demo_alert", None)))
 
+    # Self-correcting deployment + dose-response (present once their runs have built
+    # the artifacts; contract-checked only when present so a fresh clone stays green).
+    from solarflare import recalibrate as recalmod
+    check("recalibrate module exposes recalibrate()", callable(getattr(recalmod, "recalibrate", None)))
+    from solarflare.experiments import dose_response as dosemod
+    check("dose_response module exposes run()", callable(getattr(dosemod, "run", None)))
+    if getattr(sc_resp, "status_code", 200) == 200:
+        scj2 = _json.loads(server.scorecard_endpoint().body)
+        m0r = (scj2.get("models") or [{}])[0].get("recalibrated")
+        if m0r is not None:
+            check("  recalibrated block carries recovery CI", isinstance(m0r.get("recovery_ci"), list),
+                  m0r.get("recovery"))
+        dr = scj2.get("dose_response")
+        if dr is not None:
+            check("  dose_response merged into /api/scorecard",
+                  isinstance(dr.get("steps"), list) and len(dr["steps"]) >= 1, len(dr.get("steps", [])))
+
     # prediction_history.csv export must MERGE with what's on disk, not overwrite it —
     # a teammate's machine's rows (not in this machine's local DB) must survive.
     foreign_row = {c: "" for c in notifymod._CSV_COLS}

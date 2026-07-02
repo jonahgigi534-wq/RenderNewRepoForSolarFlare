@@ -37,7 +37,13 @@ independent protocol — and writes **RESULTS.md**:
   distribution-shift KS tests, permutation-importance divergence);
 * a comparison against **NOAA's own archived official forecasts** (RSGA
   warehouse) on identical days;
-* a growing **prospective forecast record** (forecasts verified after the fact).
+* a growing **prospective forecast record** (forecasts verified after the fact);
+* a **dose–response curve** (does the gap shrink as live training data grows?
+  `python -m solarflare.experiments.dose_response`);
+* **self-correcting deployment** — `python -m solarflare.recalibrate` saves an
+  "operational" operating point (threshold recalibrated on one year of live
+  data) into a model artifact; opt in live via `sharp_live.operating_point:
+  operational`. The scorecard shows the corrected-deployment rows.
 
 See **MODEL_CARD.md** for honest per-model documentation. The dashboard's
 "Model skill scorecard" panel shows all of it live, with CIs, per-year chips,
@@ -318,6 +324,9 @@ solarflare/
   swansf_data.py sharp_live.py SWAN-SF tar parser · live JSOC inference
   scorecard.py storm_scorecard.py  the 2x2 research experiment (+CIs) · storm check
   reproduce.py             one-command reproduction of every research artifact
+  recalibrate.py           self-correcting deployment (operational op point)
+  train_variant.py         train a deployable model variant (own artifact)
+  experiments/dose_response.py     gap vs. amount of live training data
   experiments/leadtime_skill.py    lead-time vs skill experiment (CSV/PNG/RESULTS.md)
   experiments/gap_diagnosis.py     why the gap exists (labels/shift/importance)
   experiments/noaa_baseline.py     deployed model vs NOAA's archived official forecast

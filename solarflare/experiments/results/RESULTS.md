@@ -11,17 +11,17 @@
 | Method | Lead (days) | TSS | Recall | Precision |
 |---|---:|---:|---:|---:|
 | persistence | 1 | 0.306 | 0.67 | 0.22 |
-| l1_solar_wind | 1 | 0.403 | 0.66 | 0.28 |
+| l1_solar_wind | 1 | 0.400 | 0.67 | 0.28 |
 | persistence | 2 | 0.057 | 0.29 | 0.16 |
-| l1_solar_wind | 2 | 0.109 | 0.70 | 0.15 |
+| l1_solar_wind | 2 | 0.115 | 0.70 | 0.15 |
 | persistence | 3 | 0.019 | 0.83 | 0.14 |
-| l1_solar_wind | 3 | 0.031 | 0.37 | 0.14 |
+| l1_solar_wind | 3 | 0.033 | 0.39 | 0.14 |
 | persistence | 5 | 0.019 | 0.83 | 0.14 |
-| l1_solar_wind | 5 | -0.016 | 0.28 | 0.13 |
+| l1_solar_wind | 5 | -0.018 | 0.27 | 0.13 |
 | persistence | 7 | 0.023 | 0.74 | 0.14 |
-| l1_solar_wind | 7 | -0.001 | 0.48 | 0.13 |
+| l1_solar_wind | 7 | 0.005 | 0.48 | 0.13 |
 | persistence | 10 | 0.066 | 0.66 | 0.15 |
-| l1_solar_wind | 10 | 0.052 | 0.51 | 0.15 |
+| l1_solar_wind | 10 | 0.051 | 0.51 | 0.14 |
 | persistence | 14 | 0.022 | 0.74 | 0.14 |
 | l1_solar_wind | 14 | 0.032 | 0.50 | 0.14 |
 | persistence | 20 | -0.020 | 0.80 | 0.13 |
@@ -29,7 +29,7 @@
 | persistence | 27 | 0.131 | 0.44 | 0.18 |
 | l1_solar_wind | 27 | 0.127 | 0.48 | 0.17 |
 | persistence | 30 | -0.016 | 0.87 | 0.13 |
-| l1_solar_wind | 30 | -0.029 | 0.66 | 0.13 |
+| l1_solar_wind | 30 | -0.042 | 0.66 | 0.13 |
 | recurrence_27d | 27 | 0.131 | 0.44 | 0.18 |
 | climatology | — | 0.000 | — | — |
 | cme_donki | 2 | 0.038 | 0.43 | 0.14 |

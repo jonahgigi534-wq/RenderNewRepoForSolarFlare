@@ -6,18 +6,28 @@
 
 ## 1. The benchmark-vs-operational gap (flare model)
 
-Benchmark test: held-out SWAN-SF magnetograms (14690 windows, 236 flares). Operational test years: 2013, 2015, 2016, 2017.
+Benchmark test: held-out SWAN-SF magnetograms (14690 windows, 236 flares). Operational test years: 2013, 2015, 2016, 2017, 2023.
 
 | Model | Benchmark TSS | Operational TSS (mean) | Gap (peak) | Gap (frozen threshold) |
 |---|---|---|---|---|
-| Benchmark-trained (SWAN-SF 2010-2012) | 0.906 | 0.828 | **+0.078** (95% CI +0.006..+0.306) | +0.085 (95% CI +0.007..+0.309) |
-| Live-trained (JSOC live data (2014)) | 0.914 | 0.804 | **+0.109** (95% CI +0.041..+0.336) | +0.178 (95% CI -0.023..+0.500) |
-| Live-trained (multi-year) (JSOC 2011+2012+2014) | 0.928 | 0.882 | **+0.046** (95% CI -0.027..+0.350) | +0.013 (95% CI -0.063..+0.305) |
+| Benchmark-trained (SWAN-SF 2010-2012) | 0.906 | 0.812 | **+0.094** (95% CI +0.021..+0.273) | +0.097 (95% CI +0.024..+0.277) |
+| Live-trained (JSOC live data (2014)) | 0.914 | 0.780 | **+0.134** (95% CI +0.066..+0.314) | +0.197 (95% CI -0.004..+0.465) |
+| Live-trained (multi-year) (JSOC 2011+2012+2014) | 0.910 | 0.852 | **+0.058** (95% CI -0.020..+0.287) | +0.034 (95% CI -0.038..+0.259) |
 
-- Benchmarks overstate operational skill: **True** — gap +0.078 (95% CI +0.006..+0.306), positive in every tested year: True.
-- With a pre-committed (deployment) threshold the benchmark-trained gap is +0.085 (95% CI +0.007..+0.309).
-- Live training closes the gap: **False** (benchmark-gap minus live-gap CI [-0.087, 0.021] — negative means live training WIDENED it).
-- MORE live data (2015+2016+2017 tested): single-year gap +0.082 vs multi-year gap +0.046 — closes it: **True** (difference CI [-0.038, 0.102]).
+- Benchmarks overstate operational skill: **True** — gap +0.094 (95% CI +0.021..+0.273), positive in every tested year: True.
+- With a pre-committed (deployment) threshold the benchmark-trained gap is +0.097 (95% CI +0.024..+0.277).
+- Live training closes the gap: **False** (benchmark-gap minus live-gap CI [-0.091, 0.01] — negative means live training WIDENED it).
+- MORE live data (2015+2016+2017+2023 tested): single-year gap +0.120 vs multi-year gap +0.058 — closes it: **True** (difference CI [-0.005, 0.119]).
+- SELF-CORRECTION (threshold recalibrated on the first operational year, frozen for the later years): benchmark-trained gap +0.082 → +0.073 (95% CI +0.007..+0.294) on the SAME eval years; recovery +0.009 (95% CI -0.026..+0.141) — significant: **False**.
+- COMBINED FIX (multi-year live training + one-year threshold recalibration): operational TSS 0.826 (CI [0.535, 0.875]); gap +0.038 → +0.011 (95% CI -0.071..+0.303) on the same eval years — remaining gap statistically indistinguishable from zero (CI spans 0 — absence of evidence, not proof of closure).
+
+Self-corrected deployment per model (recalibrate once, freeze, apply forward):
+
+| Model | Calibrated on | Eval years | TSS before | TSS after | Recovery |
+|---|---|---|---|---|---|
+| Benchmark-trained | 2013 | 2015/2016/2017/2023 | 0.795 | **0.803** | +0.009 (95% CI -0.026..+0.141) |
+| Live-trained | 2015 | 2016/2017/2023 | 0.648 | **0.757** | +0.109 (95% CI -0.012..+0.422) |
+| Live-trained (multi-year) | 2015 | 2016/2017/2023 | 0.799 | **0.826** | +0.027 (95% CI +0.001..+0.052) |
 
 Per-year peak TSS (benchmark-trained model):
 
@@ -27,8 +37,20 @@ Per-year peak TSS (benchmark-trained model):
 | 2015 | 0.825 | 0.784..0.877 | 0.813 | 12597 | 273 |
 | 2016 | 0.876 | 0.839..0.975 | 0.792 | 7440 | 25 |
 | 2017 | 0.870 | 0.000..0.953 | 0.840 | 3474 | 43 |
+| 2023 | 0.750 | 0.671..0.837 | 0.733 | 17359 | 86 |
 
 *Method: 1000 cluster-bootstrap resamples (whole active regions, because windows of one region are correlated), 95% percentile CIs, paired across models. a constant-probability (climatology) forecast has TSS = 0 by construction — the zero line IS the climatology baseline.*
+
+## 1b. Dose-response: gap vs. amount of live training data
+
+Fixed test years [2015, 2016, 2017, 2023] for every step; same pipeline, accumulating live training year-sets all ending 2014; identical fixed test sets for every step, so the points are directly comparable. Leakage guard: training windows from regions present in the benchmark test split are excluded (live 2011/2012 JSOC data overlaps SWAN-SF p1 in time and region ids).
+
+| Training years | n windows | Benchmark TSS | Operational TSS | Gap (peak) | Gap (frozen) |
+|---|---|---|---|---|---|
+| 2014 | 14675 | 0.914 | 0.794 (CI [0.577, 0.857]) | **+0.119** (95% CI +0.054..+0.339) | +0.186 (95% CI -0.008..+0.513) |
+| 2013+2014 | 28106 | 0.920 | 0.822 (CI [0.613, 0.884]) | **+0.099** (95% CI +0.026..+0.312) | +0.082 (95% CI +0.007..+0.289) |
+| 2012+2013+2014 | 37360 | 0.907 | 0.832 (CI [0.613, 0.878]) | **+0.076** (95% CI +0.012..+0.306) | +0.083 (95% CI -0.005..+0.315) |
+| 2011+2012+2013+2014 | 47030 | 0.892 | 0.821 (CI [0.606, 0.878]) | **+0.071** (95% CI -0.023..+0.286) | +0.045 (95% CI -0.032..+0.268) |
 
 ## 2. It generalises: the storm model shows the same optimism
 
@@ -55,12 +77,14 @@ full-disk daily P(M+); NOAA = archived RSGA next-day Class-M probability; ours =
 |---|---|---|---|---|---|
 | 2013 | NOAA official | 360 | 0.1341 | -0.068 | 0.402 |
 | 2013 | Helios (deployed) | 360 | 0.1142 | 0.09 | 0.421 |
-| 2015 | NOAA official | 361 | 0.132 | 0.084 | 0.445 |
-| 2015 | Helios (deployed) | 361 | 0.1264 | 0.123 | 0.455 |
+| 2015 | NOAA official | 361 | 0.1356 | 0.103 | 0.434 |
+| 2015 | Helios (deployed) | 361 | 0.1339 | 0.114 | 0.458 |
 | 2016 | NOAA official | 360 | 0.0236 | 0.126 | 0.703 |
 | 2016 | Helios (deployed) | 360 | 0.0283 | -0.049 | 0.654 |
 | 2017 | NOAA official | 353 | 0.0281 | 0.31 | 0.686 |
 | 2017 | Helios (deployed) | 353 | 0.0347 | 0.147 | 0.677 |
+| 2023 | NOAA official | 363 | 0.2077 | 0.116 | 0.285 |
+| 2023 | Helios (deployed) | 363 | 0.223 | 0.051 | 0.323 |
 
 *Caveat: horizons are close but not identical: NOAA's probability covers calendar day D+1; our windows end during day D and cover the following 24 h. Brier is the primary metric (proper); climatology (constant base rate) has Brier-skill 0 and peak TSS 0.*
 

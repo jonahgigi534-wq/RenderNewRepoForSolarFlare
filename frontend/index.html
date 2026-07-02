@@ -500,9 +500,11 @@
       <tbody id="scorecard-body"></tbody>
     </table>
     <p class="map-caption" id="scorecard-frozen" hidden></p>
+    <p class="map-caption" id="scorecard-recal" hidden></p>
     <div id="scorecard-years" class="map-caption" hidden></div>
     <p class="map-caption" id="scorecard-finding">—</p>
     <div id="scorecard-reliability" hidden style="margin-top:10px"></div>
+    <div id="scorecard-dose" hidden style="margin-top:10px"></div>
     <div id="scorecard-storm" hidden style="margin-top:10px"></div>
     <div id="scorecard-noaa" hidden style="margin-top:10px"></div>
     <p class="map-caption" id="scorecard-diagnosis" hidden></p>
@@ -1136,6 +1138,41 @@ function reliabilitySVG(rel){
     legend+pts+'</svg>';
 }
 
+function doseSVG(d){
+  // Gap vs. amount of live training data: benchmark & operational peak TSS
+  // per accumulating training year-set, CI whiskers, gap annotations.
+  const steps=(d&&d.steps)||[]; if(!steps.length) return '';
+  const W=320,H=210,P=36,PB=34, n=steps.length;
+  const sx=i=>P+(n===1?0:(i*(W-P-14)/(n-1)));
+  const ymin=Math.max(0,Math.min(...steps.map(s=>(s.operational_ci||[s.operational_tss])[0]))-0.05);
+  const ymax=Math.min(1,Math.max(...steps.map(s=>(s.benchmark_ci||[0,s.benchmark_tss])[1]))+0.03);
+  const sy=v=>H-PB-(v-ymin)*(H-PB-14)/((ymax-ymin)||1);
+  const line=(key,color,dash)=>'<polyline fill="none" stroke="'+color+'" stroke-width="2"'+
+    (dash?' stroke-dasharray="5 3"':'')+' points="'+steps.map((s,i)=>sx(i).toFixed(1)+','+sy(s[key]).toFixed(1)).join(' ')+'"/>';
+  const whisk=(ciKey,color)=>steps.map((s,i)=>{const ci=s[ciKey]; if(!ci)return '';
+    return '<line x1="'+sx(i).toFixed(1)+'" x2="'+sx(i).toFixed(1)+'" y1="'+sy(ci[0]).toFixed(1)+
+      '" y2="'+sy(ci[1]).toFixed(1)+'" stroke="'+color+'" stroke-width="1" opacity="0.55"/>';}).join('');
+  const dots=(key,color)=>steps.map((s,i)=>'<circle cx="'+sx(i).toFixed(1)+'" cy="'+sy(s[key]).toFixed(1)+'" r="3" fill="'+color+'"/>').join('');
+  const gaps=steps.map((s,i)=>'<text x="'+sx(i).toFixed(1)+'" y="'+
+    (sy((s.benchmark_tss+s.operational_tss)/2)+3).toFixed(1)+
+    '" fill="var(--x-class)" font-size="9" text-anchor="middle">▼'+Math.abs(s.gap).toFixed(2)+'</text>').join('');
+  const xlab=steps.map((s,i)=>{const ys=s.train_years||[];
+    return '<text x="'+sx(i).toFixed(1)+'" y="'+(H-16)+'" fill="#8ea0bf" font-size="9" text-anchor="middle">'+
+      ys.length+' yr'+(ys.length>1?'s':'')+'</text>'+
+      '<text x="'+sx(i).toFixed(1)+'" y="'+(H-6)+'" fill="#5d6f8f" font-size="8" text-anchor="middle">'+
+      (ys.length>1?(ys[0]+'–'+ys[ys.length-1]):ys[0])+'</text>';}).join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" style="max-width:380px;width:100%" role="img" aria-label="Gap vs training years">'+
+    '<line x1="'+P+'" y1="14" x2="'+P+'" y2="'+(H-PB)+'" stroke="#24304a"/>'+
+    '<line x1="'+P+'" y1="'+(H-PB)+'" x2="'+(W-14)+'" y2="'+(H-PB)+'" stroke="#24304a"/>'+
+    '<text x="10" y="'+((H-PB+14)/2)+'" fill="#8ea0bf" font-size="10" text-anchor="middle" transform="rotate(-90 10 '+((H-PB+14)/2)+')">peak TSS</text>'+
+    line('benchmark_tss','#5d6f8f',true)+dots('benchmark_tss','#5d6f8f')+whisk('benchmark_ci','#5d6f8f')+
+    line('operational_tss','#5ec8fa',false)+dots('operational_tss','#5ec8fa')+whisk('operational_ci','#5ec8fa')+
+    gaps+xlab+
+    '<circle cx="'+(P+8)+'" cy="10" r="3" fill="#5d6f8f"/><text x="'+(P+15)+'" y="13" fill="#8ea0bf" font-size="9">benchmark</text>'+
+    '<circle cx="'+(P+92)+'" cy="10" r="3" fill="#5ec8fa"/><text x="'+(P+99)+'" y="13" fill="#8ea0bf" font-size="9">operational (mean '+escapeHtml((d.test_years||[]).join('/'))+')</text>'+
+    '</svg>';
+}
+
 async function loadScorecard(){
   const card=document.getElementById('scorecard-card'); if(!card) return;
   try{
@@ -1156,6 +1193,29 @@ async function loadScorecard(){
       escapeHtml(m.name)+': '+Number(m.frozen.benchmark_tss).toFixed(2)+' → '+
       Number(m.frozen.operational_tss).toFixed(2)+' (gap '+Number(m.frozen.gap).toFixed(2)+ciStr(m.frozen.gap_ci)+')');
     if(fzRows.length){ fz.innerHTML='<b>Frozen threshold</b> <span class="muted">(committed in advance — the deployment scenario)</span>: '+fzRows.join(' · '); fz.hidden=false; }
+    // Self-corrected deployment: threshold recalibrated on ONE operational year,
+    // frozen for the strictly-later years (python -m solarflare.recalibrate).
+    const rc=document.getElementById('scorecard-recal');
+    const rcRows=(j.models||[]).filter(m=>m.recalibrated).map(m=>{
+      const r=m.recalibrated;
+      const before=(r.gap_before_same_years!=null)?r.gap_before_same_years:(r.gap_after+r.recovery);
+      return escapeHtml(m.name)+': gap '+Number(before).toFixed(2)+' → <b>'+
+        Number(r.gap_after).toFixed(2)+'</b>'+ciStr(r.gap_after_ci)+
+        ' <span class="muted">(recal. on '+r.calibrated_on+', TSS '+Number(r.operational_tss).toFixed(2)+
+        ' on '+r.eval_years.join('/')+' — same-years comparison)</span>';
+    });
+    if(rcRows.length){
+      const cf=((j.findings||{}).recalibration||{}).combined_fix;
+      const cfBadge=cf?(cf.gap_closed?' — <b>gap closed</b>'
+        :(cf.gap_not_significant?' — <span class="muted">remaining gap not statistically distinguishable from zero</span>':'')):'';
+      rc.innerHTML='<b>Self-corrected deployment</b> <span class="muted">(threshold recalibrated on the first operational year — the fix, applied)</span>: '+
+        rcRows.join(' · ')+
+        (cf?('<br><b style="color:var(--c-class)">Combined fix</b> <span class="muted">('+escapeHtml(cf.description)+')</span>: operational TSS <b>'+
+          Number(cf.operational_tss).toFixed(2)+'</b>'+ciStr(cf.operational_ci)+', gap '+
+          Number(cf.gap_before_same_years!=null?cf.gap_before_same_years:cf.gap_after).toFixed(2)+' → '+
+          Number(cf.gap_after).toFixed(2)+ciStr(cf.gap_after_ci)+cfBadge):'');
+      rc.hidden=false;
+    }
     // Per-year chips (benchmark-trained model): does the gap hold every year?
     const bench=(j.models||[]).find(m=>m.name==='Benchmark-trained');
     const yrsEl=document.getElementById('scorecard-years');
@@ -1179,6 +1239,14 @@ async function loadScorecard(){
       relEl.innerHTML='<b style="font-size:13px">Reliability on operational data</b> '+
         '<span class="muted" style="font-size:12px">— does “30%” mean 30%?</span><br>'+reliabilitySVG(j.reliability);
       relEl.hidden=false;
+    }
+    // Dose-response: does MORE live training data shrink the gap?
+    if(j.dose_response&&j.dose_response.steps&&j.dose_response.steps.length){
+      const de=document.getElementById('scorecard-dose');
+      de.innerHTML='<b style="font-size:13px">Dose–response: gap vs. amount of live training data</b> '+
+        '<span class="muted" style="font-size:12px">— identical fixed test years for every point</span><br>'+
+        doseSVG(j.dose_response);
+      de.hidden=false;
     }
     // Storm-model generalisation check.
     if(j.storm&&j.storm.peak){
@@ -1273,8 +1341,10 @@ async function loadSharpLive(atISO){
       return;
     }
     const full=Math.round((j.p_M_or_greater_24h_fulldisk||0)*100);
+    const op=j.operating_point?(' · op point <b>'+escapeHtml(j.operating_point)+'</b>'+
+      (j.recalibrated_on_year?(' <span class="muted">(self-corrected: recalibrated on live '+j.recalibrated_on_year+' data)</span>'):'')) : '';
     statusEl.innerHTML='Model <b>'+escapeHtml(j.model||'')+'</b> <span class="muted">('+
-      escapeHtml(j.variant_label||'')+')</span>'+tss+
+      escapeHtml(j.variant_label||'')+')</span>'+tss+op+
       ' · full-disk <b>'+full+'%</b> chance of an M-class+ flare in 24h · '+
       (j.n_regions||0)+' active regions <span class="muted">· as of '+
       escapeHtml(String(j.as_of||'').slice(0,16).replace('T',' '))+' UTC</span>';

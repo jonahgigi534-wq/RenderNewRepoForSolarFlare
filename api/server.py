@@ -148,6 +148,9 @@ def scorecard_endpoint():
     baselines = _read_json(os.path.join(cfg["_project_root"], "noaa_baseline.json"))
     if baselines is not None:
         data["baselines"] = baselines
+    dose = _read_json(os.path.join(cfg["_project_root"], "dose_response.json"))
+    if dose is not None:
+        data["dose_response"] = dose
     return JSONResponse(data, headers={"Cache-Control": "no-store"})
 
 

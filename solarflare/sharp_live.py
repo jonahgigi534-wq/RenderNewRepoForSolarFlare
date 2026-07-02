@@ -162,7 +162,18 @@ def _predict_live_impl(cfg: dict, at_time: datetime | None, at_key: str,
     X3d = np.stack([w[3] for w in windows])               # (k, 60, 17)
     Xf = dataio.build_matrix(X3d, cfg)                    # (k, 119) — same features as training
     proba = model["model"].predict_proba(Xf)[:, 1]
-    thr = float(model["threshold"])
+    # Operating point is config-selectable; "operational" exists only after
+    # `python -m solarflare.recalibrate` saved a live-data-recalibrated
+    # threshold into the artifact (the self-correcting-deployment feature).
+    op_name = str(cfg["sharp_live"].get("operating_point", "balanced"))
+    ops = model.get("operating_points", {}) or {}
+    if op_name in ops:
+        thr = float(ops[op_name]["threshold"])
+    else:                                                 # fall back to the training default
+        op_name = str(model.get("default_operating_point", "balanced"))
+        thr = float(model["threshold"])
+    recal_year = (ops.get("operational", {}) or {}).get("calibrated_on_year") \
+        if op_name == "operational" else None
     regions = []
     for (harp, ar, end_t, _), p in zip(windows, proba):
         regions.append({"harpnum": int(harp), "noaa_ar": int(ar),
@@ -177,7 +188,8 @@ def _predict_live_impl(cfg: dict, at_time: datetime | None, at_key: str,
         "variant_label": label,
         "test_tss": round(model.get("metrics", {}).get("tss", 0.0), 3),
         "as_of": (at_time or datetime.now(timezone.utc)).isoformat(),
-        "operating_point": model.get("default_operating_point"),
+        "operating_point": op_name,
+        "recalibrated_on_year": recal_year,   # set when the operational (self-corrected) point is active
         "threshold": thr,
         "p_M_or_greater_24h_fulldisk": round(full, 4),
         "n_regions": len(regions),
