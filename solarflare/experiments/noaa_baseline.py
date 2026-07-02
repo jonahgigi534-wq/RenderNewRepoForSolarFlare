@@ -196,6 +196,10 @@ def run(cfg: dict | None = None, years: list[int] | None = None) -> dict:
     root = cfg["_project_root"]
     dd = os.path.join(root, "data", "sharp_live")
     from ..scorecard import detect_operational_years
+    # Deliberately NOT label-gated (no cfg passed): this comparison's ground
+    # truth is flare-DAYS from the GOES event list, which needs no AR
+    # attribution — 2023 is trustworthy here even though its AR-attributed
+    # window labels are not (see scorecard.label_excluded_years).
     years = years or detect_operational_years(dd)
     if not years:
         raise RuntimeError("no operational dataset_YYYY.npz found")

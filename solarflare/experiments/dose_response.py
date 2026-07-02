@@ -35,7 +35,7 @@ from .. import data as dataio
 from .. import sharpdata, sharptrain
 from ..config import load_config
 from ..scorecard import (_ci, bootstrap_sets, detect_operational_years,
-                         frozen_tss, peak_tss)
+                         frozen_tss, label_excluded_years, peak_tss)
 
 # Accumulate BACKWARDS from 2014 so every step ends at the same date and the
 # post-2014 test years remain valid for all of them.
@@ -78,7 +78,7 @@ def run(cfg: dict | None = None) -> dict:
              if all(os.path.exists(os.path.join(dd, f"dataset_{y}.npz")) for y in s)]
     if not steps:
         raise RuntimeError("no complete training year-set on disk — build dataset_2014.npz first")
-    test_years = [y for y in detect_operational_years(dd) if y > 2014]
+    test_years = [y for y in detect_operational_years(dd, cfg) if y > 2014]
     if not test_years:
         raise RuntimeError("no operational test year after 2014 on disk")
     print(f"Steps: {steps}\nFixed test years: {test_years}", flush=True)
@@ -142,6 +142,10 @@ def run(cfg: dict | None = None) -> dict:
     out = {
         "title": "Dose-response: gap vs. amount of live training data",
         "test_years": test_years,
+        "excluded_years": {str(y): f"label-attribution rate {r:.2f} below the "
+                                   "scorecard.min_label_attribution gate (labels "
+                                   "under-count positives)"
+                           for y, r in sorted(label_excluded_years(cfg).items())},
         "metric": "peak TSS (cluster-bootstrap 95% CIs); frozen gap uses the "
                   "validation-tuned threshold committed in advance",
         "method": "same pipeline, accumulating live training year-sets all ending "

@@ -424,6 +424,20 @@ scorecard:
   ci_level: 0.95
   reliability_bins: 10
   random_state: 42
+  # LABEL-QUALITY GATE. Our labels need HEK/SWPC to attribute each M+ flare to
+  # a NOAA AR number (sharpdata.fetch_flares); a flare without an AR number can
+  # never mark a positive window. Measured attribution rates (M+ flares with an
+  # AR / total, HEK frm_name=SWPC, measured 2026-07-02):
+  #   2014: 180/191 = 0.94        2023: 43/289 = 0.15
+  # A year below the gate under-labels positives (~85% of real 2023 flares got
+  # "no flare"), biasing TSS down with label noise — so it is EXCLUDED from
+  # label-dependent evaluations (scorecard, dose_response, recalibrate).
+  # noaa_baseline is deliberately NOT gated: its ground truth counts flare-days
+  # from the GOES event list, which needs no AR attribution.
+  min_label_attribution: 0.8
+  label_attribution_by_year:
+    2014: 0.94
+    2023: 0.15
 
 # Dose-response experiment (python -m solarflare.experiments.dose_response):
 # gap vs. amount of live training data, fixed post-2014 test years.

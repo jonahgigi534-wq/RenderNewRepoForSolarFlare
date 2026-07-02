@@ -74,8 +74,10 @@ def recalibrate(variant: str | None = None, year: int | None = None,
     payload = joblib.load(path)
     cutoff = _training_cutoff_year(payload)
     dd = os.path.join(cfg["_project_root"], "data", "sharp_live")
-    valid = [y for y in detect_operational_years(dd) if y > cutoff]
-    # detect_operational_years excludes the standard training-era years; also
+    valid = [y for y in detect_operational_years(dd, cfg) if y > cutoff]
+    # detect_operational_years excludes the standard training-era years AND
+    # (via cfg) years failing the label-attribution gate — recalibrating a
+    # threshold on under-labeled data would tune against label noise; also
     # respect THIS artifact's own span (e.g. the multiyear variant ends 2014).
     if year is None:
         if not valid:

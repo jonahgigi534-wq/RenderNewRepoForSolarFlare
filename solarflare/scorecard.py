@@ -173,12 +173,28 @@ def reliability_bins(y, p, n_bins: int = 10) -> dict:
 # ----------------------------------------------------------------------
 # The experiment
 # ----------------------------------------------------------------------
-def detect_operational_years(data_dir: str) -> list[int]:
-    """Every dataset_YYYY.npz on disk that is unseen by BOTH models."""
+def label_excluded_years(cfg: dict | None) -> dict[int, float]:
+    """Years whose measured HEK AR-attribution rate is below the config gate
+    (scorecard.min_label_attribution). Our labeler can only mark a positive when
+    HEK/SWPC gives the flare a NOAA AR number, so a low-attribution year
+    under-counts positives and its TSS is biased down by label noise — such
+    years must not be scored by label-dependent evaluations.
+    Returns {year: measured_attribution_rate}."""
+    sc = (cfg or {}).get("scorecard", {}) or {}
+    gate = float(sc.get("min_label_attribution", 0.0))
+    rates = sc.get("label_attribution_by_year", {}) or {}
+    return {int(y): float(r) for y, r in rates.items() if float(r) < gate}
+
+
+def detect_operational_years(data_dir: str, cfg: dict | None = None) -> list[int]:
+    """Every dataset_YYYY.npz on disk that is unseen by BOTH models. Pass cfg to
+    also apply the label-attribution gate (required for label-dependent
+    evaluations; noaa_baseline legitimately omits it)."""
+    bad = set(label_excluded_years(cfg))
     years = []
     for fn in os.listdir(data_dir) if os.path.isdir(data_dir) else []:
         m = re.fullmatch(r"dataset_(\d{4})\.npz", fn)
-        if m and int(m.group(1)) not in _TRAINING_ERA_YEARS:
+        if m and int(m.group(1)) not in _TRAINING_ERA_YEARS and int(m.group(1)) not in bad:
             years.append(int(m.group(1)))
     return sorted(years)
 
@@ -241,7 +257,11 @@ def run(cfg: dict | None = None) -> dict:
     bench_test_years = {int(str(dp["end_times"][i])[:4]) for i in ite}
     multi_bench_leaky = MULTI in models and bool(
         set(multi_train_years) & bench_test_years)
-    years = detect_operational_years(dd)
+    excluded = label_excluded_years(cfg)
+    if excluded:
+        print(f"Label-attribution gate: excluding {sorted(excluded)} "
+              f"(rates {excluded})", flush=True)
+    years = detect_operational_years(dd, cfg)
     if not years:
         raise RuntimeError("no operational dataset_YYYY.npz found in data/sharp_live")
     for yr in years:
@@ -527,6 +547,10 @@ def run(cfg: dict | None = None) -> dict:
                              "and frozen for the strictly-later years; recovery CIs "
                              "are paired (frozen2 vs frozen on the same cluster-"
                              "bootstrap replicates)",
+            "label_gate": "years whose measured HEK AR-attribution rate falls "
+                          "below scorecard.min_label_attribution are excluded "
+                          "from all label-dependent scoring — their labels "
+                          "under-count positives (see test_sets.excluded_years)",
         },
         "test_sets": {
             "benchmark": f"held-out SWAN-SF magnetograms ({int(len(y_by_set['benchmark']))} windows, "
@@ -535,6 +559,13 @@ def run(cfg: dict | None = None) -> dict:
                 f"{s} ({int(len(y_by_set[s]))} windows, {int(y_by_set[s].sum())} flares)"
                 for s in op_sets),
             "operational_years": [int(s) for s in op_sets],
+            "excluded_years": {
+                str(y): (f"HEK AR-attribution rate {r:.2f} is below the "
+                         f"{float((cfg.get('scorecard', {}) or {}).get('min_label_attribution', 0)):.2f} gate — "
+                         "labels under-count positives (a flare without a NOAA AR "
+                         "number can never mark a positive window), so TSS on this "
+                         "year would measure catalog decay, not model skill")
+                for y, r in sorted(excluded.items())},
         },
         "models": rows,
         "reliability": reliability,
