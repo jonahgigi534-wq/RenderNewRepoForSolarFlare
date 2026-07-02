@@ -1,16 +1,20 @@
 """Live SHARP flare inference.
 
-Fetches the most recent 12 h of JSOC `hmi.sharp_cea_720s` data for each on-disk
-active region and runs OUR saved pipeline (impute -> standardize -> classifier)
-to get P(M-class+ flare within 24 h) per region and full-disk. The transform is
+Fetches the most recent 12 h of JSOC SHARP data for each on-disk active region
+and runs OUR saved pipeline (impute -> standardize -> classifier) to get
+P(M-class+ flare within 24 h) per region and full-disk. The transform is
 identical to training (same keywords, same 60-record window, same summary-stat
 features, same persisted pipeline) — that's the whole point of owning it.
+
+Live fetches use config `sharp_live.live_series` (hmi.sharp_cea_720s_nrt, ~1 h
+fresh) because the definitive series lags real time by weeks; training and
+dataset builds stay on the definitive series (see sharpdata.py).
 
 Resilient: never raises to the API; degrades to {"available": False, ...} when the
 model is missing, `drms` is unavailable, or JSOC returns nothing.
 
-NOTE: in a sandbox whose clock is past real JSOC data, pass `at_time` (a historical
-UTC datetime) to demo. On a real machine, `at_time=None` uses 'now'.
+Pass `at_time` (a historical UTC datetime) for a historical demo; `at_time=None`
+uses 'now'.
 """
 from __future__ import annotations
 
@@ -80,7 +84,10 @@ def fetch_recent_windows(cfg: dict, at_time: datetime | None = None):
     obs_h = int(sl["observation_window_h"])
     at = at_time or datetime.now(timezone.utc)
     t0 = at - timedelta(hours=obs_h * 1.4)                # a little slack to ensure 60 records
-    rows = sharpdata.fetch_sharp(t0, at, cfg, chunk_days=2, verbose=False)
+    # Live ("now") queries use the near-real-time series; historical demos use
+    # the definitive series, which is complete for the past.
+    series = (sl.get("live_series") or sharpdata.SERIES) if at_time is None else sharpdata.SERIES
+    rows = sharpdata.fetch_sharp(t0, at, cfg, chunk_days=2, verbose=False, series=series)
     win = obs_h * 60 // sharpdata.CADENCE_MIN
     by_harp: dict[int, list] = {}
     for t, harp, ar, vec in rows:
@@ -150,14 +157,16 @@ def _predict_live_impl(cfg: dict, at_time: datetime | None, at_key: str,
     info = {"model": model.get("winner"), "variant": variant or "", "variant_label": label,
             "test_tss": round(model.get("metrics", {}).get("tss", 0.0), 3),
             "trained_on": model.get("data_span")}
+    from . import sharpdata
+    series = (cfg["sharp_live"].get("live_series") or sharpdata.SERIES) \
+        if at_time is None else sharpdata.SERIES
     try:
         windows = _cached_windows(cfg, at_time, at_key, use_cache)
     except Exception as exc:                              # noqa: BLE001 (never raise)
         return {"available": False, "reason": f"JSOC fetch unavailable ({type(exc).__name__})", **info}
     if not windows:
         return {"available": False, **info,
-                "reason": "no current JSOC data in this environment "
-                          "(the model is trained and runs live on a real machine)"}
+                "reason": f"no recent JSOC data on {series} for this window"}
 
     X3d = np.stack([w[3] for w in windows])               # (k, 60, 17)
     Xf = dataio.build_matrix(X3d, cfg)                    # (k, 119) — same features as training
@@ -181,6 +190,8 @@ def _predict_live_impl(cfg: dict, at_time: datetime | None, at_key: str,
                         "will_flare": bool(p >= thr)})
     regions.sort(key=lambda r: r["p_M_or_greater_24h"], reverse=True)
     full = 1.0 - float(np.prod(1.0 - proba))              # P(any region flares)
+    latest = max(w[2] for w in windows)                   # newest T_REC actually used
+    age_min = ((at_time or datetime.now(timezone.utc)) - latest).total_seconds() / 60.0
     return {
         "available": True,
         "model": model.get("winner"),
@@ -188,6 +199,9 @@ def _predict_live_impl(cfg: dict, at_time: datetime | None, at_key: str,
         "variant_label": label,
         "test_tss": round(model.get("metrics", {}).get("tss", 0.0), 3),
         "as_of": (at_time or datetime.now(timezone.utc)).isoformat(),
+        "data_series": series,
+        "latest_data": latest.isoformat(),
+        "data_age_minutes": round(max(0.0, age_min), 1),
         "operating_point": op_name,
         "recalibrated_on_year": recal_year,   # set when the operational (self-corrected) point is active
         "threshold": thr,

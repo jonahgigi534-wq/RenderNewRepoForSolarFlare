@@ -520,8 +520,8 @@
         <option value="">Deployed (SWAN-SF-trained)</option>
       </select>
       <span style="color:var(--text-faint);margin-left:8px">Test a past date (UTC):</span>
-      <input id="sharp-date" type="datetime-local" value="2014-10-24T12:00" min="2010-05-01T00:00" max="2026-05-25T23:00" style="background:#0a1326;border:1px solid #24304a;color:var(--text);border-radius:6px;padding:3px 7px;width:200px">
-      <span style="color:var(--text-faint);font-size:12px">(data: May 2010 – May 25 2026; any time works)</span>
+      <input id="sharp-date" type="datetime-local" value="2014-10-24T12:00" min="2010-05-01T00:00" style="background:#0a1326;border:1px solid #24304a;color:var(--text);border-radius:6px;padding:3px 7px;width:200px">
+      <span style="color:var(--text-faint);font-size:12px">(definitive archive from May 2010; leave untouched &amp; refresh for live "now" via the near-real-time feed)</span>
       <button onclick="loadSharpLive((document.getElementById('sharp-date').value||'').trim()||undefined)" style="background:#1b2942;border:1px solid #2c3d5e;color:var(--text);border-radius:6px;padding:3px 12px;cursor:pointer">Test</button>
     </div>
     <table class="tracks" id="sharp-table" hidden aria-label="Live per-region SHARP flare probabilities">
@@ -1356,11 +1356,13 @@ async function loadSharpLive(atISO){
     const full=Math.round((j.p_M_or_greater_24h_fulldisk||0)*100);
     const op=j.operating_point?(' · op point <b>'+escapeHtml(j.operating_point)+'</b>'+
       (j.recalibrated_on_year?(' <span class="muted">(self-corrected: recalibrated on live '+j.recalibrated_on_year+' data)</span>'):'')) : '';
+    const age=(j.data_age_minutes!=null)?(' · data '+(j.data_age_minutes<90
+      ?Math.round(j.data_age_minutes)+' min':(j.data_age_minutes/60).toFixed(1)+' h')+' old'):'';
     statusEl.innerHTML='Model <b>'+escapeHtml(j.model||'')+'</b> <span class="muted">('+
       escapeHtml(j.variant_label||'')+')</span>'+tss+op+
       ' · full-disk <b>'+full+'%</b> chance of an M-class+ flare in 24h · '+
       (j.n_regions||0)+' active regions <span class="muted">· as of '+
-      escapeHtml(String(j.as_of||'').slice(0,16).replace('T',' '))+' UTC</span>';
+      escapeHtml(String(j.as_of||'').slice(0,16).replace('T',' '))+' UTC'+age+'</span>';
     const rows=(j.regions||[]).slice(0,8).map(reg=>{
       const p=Math.round((reg.p_M_or_greater_24h||0)*100);
       const flag=reg.will_flare?'<span class="reg-tag active">⚠ watch</span>':'<span class="reg-tag quiet">—</span>';
@@ -1758,6 +1760,10 @@ window.addEventListener('helios-globe-ready',()=>{
 
 document.getElementById('refresh').addEventListener('click', loadAll);
 let _rz; addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ loadFlux(); drawHazardMap(); if(expData) drawSkillChart(document.getElementById('exp-chart'), expData); if(mapMode==='3d') sizeGlobe(); },150); });
+// Date-picker ceiling = now (UTC): the definitive archive covers the past and
+// the NRT feed covers "now", so any past-or-present moment is testable.
+(function(){const el=document.getElementById('sharp-date');
+  if(el) el.max=new Date().toISOString().slice(0,16);})();
 loadSharpVariants();   // populate the model dropdown ONCE (loadAll() must not rebuild it every
                         // 5 min — that would silently reset the user's selection back to default)
 loadAll();

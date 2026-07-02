@@ -54,14 +54,15 @@ def _jsoc_time(dt: datetime) -> str:
 # ----------------------------------------------------------------------
 # Fetch: SHARP keyword time series (JSOC) and flares (HEK)
 # ----------------------------------------------------------------------
-def _query_range(client, keystr: str, t0: datetime, t1: datetime, depth: int = 0):
+def _query_range(client, keystr: str, t0: datetime, t1: datetime,
+                 series: str = SERIES, depth: int = 0):
     """Query [t0, t1); JSOC caps result size, so on a size error split and recurse.
     Transient network failures (connection reset, timeout) retry with backoff — a
     multi-hour build must not die on one dropped socket."""
     import drms
     import pandas as pd
     days = max(1, round((t1 - t0).total_seconds() / 86400))
-    q = f"{SERIES}[][{_jsoc_time(t0)}/{days}d]"
+    q = f"{series}[][{_jsoc_time(t0)}/{days}d]"
     for attempt in range(4):
         try:
             return client.query(q, key=keystr)
@@ -69,8 +70,8 @@ def _query_range(client, keystr: str, t0: datetime, t1: datetime, depth: int = 0
             if days <= 1 or depth > 7:
                 raise
             mid = t0 + (t1 - t0) / 2
-            return pd.concat([_query_range(client, keystr, t0, mid, depth + 1),
-                              _query_range(client, keystr, mid, t1, depth + 1)],
+            return pd.concat([_query_range(client, keystr, t0, mid, series, depth + 1),
+                              _query_range(client, keystr, mid, t1, series, depth + 1)],
                              ignore_index=True)
         except Exception:                         # noqa: BLE001 (network hiccup — retry)
             if attempt == 3:
@@ -79,11 +80,16 @@ def _query_range(client, keystr: str, t0: datetime, t1: datetime, depth: int = 0
 
 
 def fetch_sharp(t_start: datetime, t_end: datetime, cfg: dict, *, chunk_days: int | None = None,
-                verbose: bool = True):
+                verbose: bool = True, series: str | None = None):
     """Return per-record tuples (T_REC, HARPNUM, NOAA_AR, vec[17]) pulled from JSOC
-    in chunks (auto-split if a chunk exceeds JSOC's result cap). Needs `drms`."""
+    in chunks (auto-split if a chunk exceeds JSOC's result cap). Needs `drms`.
+
+    `series` defaults to the definitive science series (training/datasets). Live
+    inference passes config `sharp_live.live_series` (the _nrt series) instead —
+    the definitive series lags real time by weeks, NRT by ~1 h."""
     import drms
     client = drms.Client()
+    series = series or SERIES
     keys = cfg["sharp_live"]["keywords"]                  # the 17 available channels, in order
     keystr = "T_REC,HARPNUM,NOAA_AR," + ",".join(keys)
     chunk_days = chunk_days or int(cfg["sharp_live"].get("chunk_days", 5))
@@ -92,7 +98,7 @@ def fetch_sharp(t_start: datetime, t_end: datetime, cfg: dict, *, chunk_days: in
     while cur < t_end:
         nxt = min(cur + timedelta(days=chunk_days), t_end)
         t0 = time.time()
-        df = _query_range(client, keystr, cur, nxt)
+        df = _query_range(client, keystr, cur, nxt, series)
         if verbose:
             print(f"  JSOC {cur.date()} +{(nxt-cur).days}d -> {len(df):>6} rows "
                   f"({time.time()-t0:.1f}s)")

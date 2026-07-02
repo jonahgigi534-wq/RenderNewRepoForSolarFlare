@@ -14,7 +14,7 @@ the "Model Cards for Model Reporting" practice (Mitchell et al., 2019).
 | **Training data** | SWAN-SF partition 1 (Harvard Dataverse doi:10.7910/DVN/EBCFKM), 2010–2012, restricted to the 17 SHARP keywords JSOC serves live; 73,492 windows, 1,254 positives |
 | **Evaluation** | region-disjoint chronological split; held-out test TSS **0.77** at the balanced operating point |
 | **Operational skill** | measured on unseen JSOC years by `solarflare.scorecard` — expect the benchmark number to overstate it (that finding is the point of this project; see RESULTS.md) |
-| **Runs live on** | JSOC `hmi.sharp_cea_720s` keyword series via `drms` (`/api/sharp_live`) |
+| **Runs live on** | JSOC `hmi.sharp_cea_720s_nrt` (near-real-time, ~1 h latency) via `drms` (`/api/sharp_live`); historical `?at=` demos use the definitive `hmi.sharp_cea_720s` |
 
 **Intended use:** research/education dashboard guidance alongside official NOAA
 SWPC products — never as the sole input to an operational decision.
@@ -30,6 +30,13 @@ on JSOC 2011+2012+2014 (test TSS 0.83); runs live via
 `/api/sharp_live?variant=multiyear` for side-by-side comparison. The default
 deployed artifact is never modified by variant training or recalibration of a
 variant.
+
+**Series separation (deliberate):** training and dataset builds use the
+definitive science series (`hmi.sharp_cea_720s`); live inference reads the NRT
+series (`hmi.sharp_cea_720s_nrt`) because the definitive series lags real time
+by weeks (measured 2026-07-02: 35 days). Both expose the same 17 keywords
+(verified); NRT values are preliminary and may be revised in the definitive
+record.
 
 **Known limitations**
 - Trained on solar-cycle-24 rising phase (2010–2012); skill degrades on other

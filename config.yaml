@@ -372,6 +372,12 @@ notify:
 # ----------------------------------------------------------------------
 sharp_live:
   series: hmi.sharp_cea_720s
+  # LIVE INFERENCE ONLY: the definitive series above lags real time by weeks
+  # (measured 2026-07-02: latest T_REC 35 days old), so live fetches use the
+  # near-real-time series (~1 h fresh; same 17 keywords, verified). Training
+  # and dataset builds stay on the definitive series — that separation is
+  # deliberate and documented in MODEL_CARD.md.
+  live_series: hmi.sharp_cea_720s_nrt
   keywords: [R_VALUE, TOTUSJH, TOTPOT, TOTUSJZ, ABSNJZH, SAVNCPP, USFLUX,
              MEANPOT, MEANSHR, SHRGT45, MEANGAM, MEANGBT, MEANGBZ, MEANGBH,
              MEANJZH, MEANJZD, MEANALP]
