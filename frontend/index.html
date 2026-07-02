@@ -512,8 +512,12 @@
   <div class="section-title"><h2>Live SHARP model</h2><span class="sub">Per-region P(M+) from JSOC magnetic data · our own ML</span></div>
   <div class="card" id="sharp-card">
     <p class="map-caption" id="sharp-status">—</p>
-    <div style="margin:8px 0;font-size:13px">
-      <span style="color:var(--text-faint)">Test a past date (UTC):</span>
+    <div style="margin:8px 0;font-size:13px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <span style="color:var(--text-faint)">Model:</span>
+      <select id="sharp-variant" onchange="loadSharpLive((document.getElementById('sharp-date').value||'').trim()||undefined)" style="background:#0a1326;border:1px solid #24304a;color:var(--text);border-radius:6px;padding:3px 7px">
+        <option value="">Deployed (SWAN-SF-trained)</option>
+      </select>
+      <span style="color:var(--text-faint);margin-left:8px">Test a past date (UTC):</span>
       <input id="sharp-date" type="datetime-local" value="2014-10-24T12:00" min="2010-05-01T00:00" max="2026-05-25T23:00" style="background:#0a1326;border:1px solid #24304a;color:var(--text);border-radius:6px;padding:3px 7px;width:200px">
       <span style="color:var(--text-faint);font-size:12px">(data: May 2010 – May 25 2026; any time works)</span>
       <button onclick="loadSharpLive((document.getElementById('sharp-date').value||'').trim()||undefined)" style="background:#1b2942;border:1px solid #2c3d5e;color:var(--text);border-radius:6px;padding:3px 12px;cursor:pointer">Test</button>
@@ -1236,12 +1240,30 @@ async function fireDemoAlert(){
   if(btn) btn.disabled=false;
 }
 
+async function loadSharpVariants(){
+  const sel=document.getElementById('sharp-variant'); if(!sel) return;
+  try{
+    const r=await fetch(API_BASE+'/api/sharp_live/variants',{cache:'no-store'}); if(!r.ok) return;
+    const j=await r.json();
+    sel.innerHTML=(j.variants||[]).map(v=>
+      '<option value="'+escapeHtml(v.key)+'"'+(v.trained?'':' disabled')+'>'+
+      escapeHtml(v.label)+(v.trained?'':' (not trained)')+'</option>').join('');
+  }catch(e){ /* optional */ }
+}
+
+let _sharpLiveSeq=0;
 async function loadSharpLive(atISO){
   const card=document.getElementById('sharp-card'); if(!card) return;
   const statusEl=document.getElementById('sharp-status');
   const tbl=document.getElementById('sharp-table'), body=document.getElementById('sharp-body');
+  const variant=(document.getElementById('sharp-variant')||{}).value||'';
+  const seq=++_sharpLiveSeq;   // guard against an older in-flight request (e.g. the periodic
+                                // refresh) resolving AFTER a newer variant/date change and
+                                // clobbering the UI with stale data
   try{
-    const r=await fetch(API_BASE+'/api/sharp_live'+(atISO?'?at='+encodeURIComponent(atISO):''),{cache:'no-store'});
+    const qs=new URLSearchParams(); if(atISO) qs.set('at',atISO); if(variant) qs.set('variant',variant);
+    const r=await fetch(API_BASE+'/api/sharp_live'+(qs.toString()?'?'+qs.toString():''),{cache:'no-store'});
+    if(seq!==_sharpLiveSeq) return;   // a newer request has since started; drop this result
     if(!r.ok) throw 0; const j=await r.json();
     const tss=(j.test_tss!=null)?(' · test TSS '+Number(j.test_tss).toFixed(2)):'';
     if(!j.available){
@@ -1251,7 +1273,8 @@ async function loadSharpLive(atISO){
       return;
     }
     const full=Math.round((j.p_M_or_greater_24h_fulldisk||0)*100);
-    statusEl.innerHTML='Model <b>'+escapeHtml(j.model||'')+'</b>'+tss+
+    statusEl.innerHTML='Model <b>'+escapeHtml(j.model||'')+'</b> <span class="muted">('+
+      escapeHtml(j.variant_label||'')+')</span>'+tss+
       ' · full-disk <b>'+full+'%</b> chance of an M-class+ flare in 24h · '+
       (j.n_regions||0)+' active regions <span class="muted">· as of '+
       escapeHtml(String(j.as_of||'').slice(0,16).replace('T',' '))+' UTC</span>';
@@ -1652,6 +1675,8 @@ window.addEventListener('helios-globe-ready',()=>{
 
 document.getElementById('refresh').addEventListener('click', loadAll);
 let _rz; addEventListener('resize', ()=>{ clearTimeout(_rz); _rz=setTimeout(()=>{ loadFlux(); drawHazardMap(); if(expData) drawSkillChart(document.getElementById('exp-chart'), expData); if(mapMode==='3d') sizeGlobe(); },150); });
+loadSharpVariants();   // populate the model dropdown ONCE (loadAll() must not rebuild it every
+                        // 5 min — that would silently reset the user's selection back to default)
 loadAll();
 setInterval(loadAll, 5*60*1000);   // auto-refresh every 5 minutes
 </script>

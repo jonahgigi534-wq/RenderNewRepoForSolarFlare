@@ -97,9 +97,14 @@ def storm_endpoint():
 
 
 @app.get("/api/sharp_live")
-def sharp_live_endpoint(at: str = Query("", description="optional ISO-8601 UTC time for a historical demo; blank = now")):
+def sharp_live_endpoint(at: str = Query("", description="optional ISO-8601 UTC time for a historical demo; blank = now"),
+                        variant: str = Query("", description="optional deployable model variant "
+                                                              "(see /api/sharp_live/variants); blank = the default deployed model")):
     """Live SHARP ML flare forecast: P(M-class+ in 24h) per active region from JSOC
-    magnetic-field data, using our own JSOC-trained model (saved preprocessing)."""
+    magnetic-field data, using our own JSOC-trained model (saved preprocessing).
+    `variant` selects an alternate model trained via `python -m solarflare.train_variant`
+    (e.g. the multi-year live-trained model our own research favours operationally) —
+    runs alongside the default without replacing it."""
     from datetime import datetime, timezone
     from solarflare import sharp_live as sl
     at_time = None
@@ -108,7 +113,15 @@ def sharp_live_endpoint(at: str = Query("", description="optional ISO-8601 UTC t
             at_time = datetime.fromisoformat(at).replace(tzinfo=timezone.utc)
         except ValueError:
             at_time = None
-    return JSONResponse(sl.predict_live(cfg, at_time=at_time))
+    return JSONResponse(sl.predict_live(cfg, at_time=at_time, variant=variant or None))
+
+
+@app.get("/api/sharp_live/variants")
+def sharp_live_variants_endpoint():
+    """Which live-SHARP models are deployable (default + configured variants) and
+    whether each has been trained on this machine."""
+    from solarflare import sharp_live as sl
+    return JSONResponse({"variants": sl.list_variants(cfg)})
 
 
 def _read_json(path: str):

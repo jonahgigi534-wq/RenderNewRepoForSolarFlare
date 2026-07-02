@@ -105,9 +105,13 @@ def time_group_split(groups, end_times, frac: dict):
             np.array(idx_te, dtype=int))
 
 
-def train(data_path: str | dict, cfg: dict | None = None, save: bool = True) -> dict:
+def train(data_path: str | dict, cfg: dict | None = None, save: bool = True,
+         out_path: str | None = None) -> dict:
     """`data_path` may also be an already-loaded dataset dict (X3d/y/groups/
-    end_times) — used by the scorecard to train on several years concatenated."""
+    end_times) — used by the scorecard to train on several years concatenated.
+    `out_path` overrides where the artifact is saved (defaults to
+    sharp_live.model_path) — used to save a variant WITHOUT touching the
+    default deployed model."""
     cfg = cfg or load_config()
     sl = cfg["sharp_live"]
     sel = sl["selection_metric"]
@@ -191,7 +195,7 @@ def train(data_path: str | dict, cfg: dict | None = None, save: bool = True) -> 
         "version": __import__("solarflare").__version__,
     }
     if save:
-        out = sl.get("model_path", "models/flare_sharp_live_model.joblib")
+        out = out_path or sl.get("model_path", "models/flare_sharp_live_model.joblib")
         os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
         joblib.dump(payload, out)
         meta = {k: v for k, v in payload.items() if k != "model"}

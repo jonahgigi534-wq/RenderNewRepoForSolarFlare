@@ -389,6 +389,16 @@ sharp_live:
   random_state: 42
   model_path: models/flare_sharp_live_model.joblib
   cache_minutes: 15               # reuse a live result this long (avoid re-hitting JSOC)
+  # Additional deployable models, saved SEPARATELY from the default above (never
+  # overwrites it). The dashboard can run either live and compare them — this is
+  # the research finding (does more live training data help?) made tangible as a
+  # product feature instead of only a backtest number. Select via
+  # /api/sharp_live?variant=<key>. Train with: python -m solarflare.train_variant <key>
+  variants:
+    multiyear:
+      label: "Multi-year live-trained (2011+2012+2014)"
+      train_years: [2011, 2012, 2014]
+      model_path: models/flare_sharp_live_model_multiyear.joblib
 
 # ----------------------------------------------------------------------
 # Model Skill Scorecard — the research experiment (python -m solarflare.scorecard).

@@ -23,26 +23,54 @@ import numpy as np
 from . import data as dataio
 from .config import load_config
 
-_MODEL = None
-_CACHE: dict = {}
+_MODELS: dict = {}          # variant key ("" = default) -> loaded payload or None
+_CACHE: dict = {}           # (variant, at_key) -> (timestamp, result)
+_WINDOWS_CACHE: dict = {}   # at_key -> (timestamp, windows) — shared across variants
 
 
-def load_model(cfg: dict):
-    """Load + cache the saved live SHARP pipeline, or None if not trained yet."""
-    global _MODEL
-    if _MODEL is not None:
-        return _MODEL
-    path = cfg["sharp_live"].get("model_path", "models/flare_sharp_live_model.joblib")
+def variant_spec(cfg: dict, variant: str | None):
+    """(label, model_path) for a variant key, or the default when None/''."""
+    sl = cfg["sharp_live"]
+    if not variant:
+        return "Deployed (SWAN-SF-trained)", sl.get("model_path", "models/flare_sharp_live_model.joblib")
+    spec = sl.get("variants", {}).get(variant)
+    if spec is None:
+        return None, None
+    return spec.get("label", variant), spec["model_path"]
+
+
+def list_variants(cfg: dict) -> list[dict]:
+    """[{key, label, trained}] for the dashboard's model selector — the default
+    deployed model first, then every configured variant that has been trained."""
+    out = [{"key": "", "label": variant_spec(cfg, None)[0],
+           "trained": load_model(cfg, None) is not None}]
+    for key, spec in cfg["sharp_live"].get("variants", {}).items():
+        out.append({"key": key, "label": spec.get("label", key),
+                    "trained": load_model(cfg, key) is not None})
+    return out
+
+
+def load_model(cfg: dict, variant: str | None = None):
+    """Load + cache the saved live SHARP pipeline for a variant ("" / None =
+    the default deployed model), or None if not trained / unknown variant."""
+    key = variant or ""
+    if key in _MODELS:
+        return _MODELS[key]
+    _, path = variant_spec(cfg, variant)
+    if path is None:
+        _MODELS[key] = None
+        return None
     if not os.path.isabs(path):                           # resolve against project root, not CWD
         path = os.path.join(cfg.get("_project_root", "."), path)
     if not os.path.exists(path):
+        _MODELS[key] = None
         return None
     try:
         import joblib
-        _MODEL = joblib.load(path)
+        _MODELS[key] = joblib.load(path)
     except Exception:                                     # noqa: BLE001
-        _MODEL = None
-    return _MODEL
+        _MODELS[key] = None
+    return _MODELS[key]
 
 
 def fetch_recent_windows(cfg: dict, at_time: datetime | None = None):
@@ -75,32 +103,55 @@ def fetch_recent_windows(cfg: dict, at_time: datetime | None = None):
     return out
 
 
-def predict_live(cfg: dict | None = None, at_time: datetime | None = None,
-                 use_cache: bool = True) -> dict:
-    """Cached wrapper: a live result is reused for cache_minutes so repeated
-    dashboard polls don't re-hit JSOC each time. Never raises."""
-    cfg = cfg or load_config()
-    key = at_time.isoformat() if at_time else "now"
+def _cached_windows(cfg: dict, at_time: datetime | None, at_key: str, use_cache: bool):
+    """JSOC windows shared across variants — comparing two live models should
+    not double the JSOC hits, since both consume the identical recent data."""
     ttl = float(cfg["sharp_live"].get("cache_minutes", 15)) * 60
     if use_cache:
-        hit = _CACHE.get(key)
+        hit = _WINDOWS_CACHE.get(at_key)
         if hit and (time.time() - hit[0]) < ttl:
             return hit[1]
-    res = _predict_live_impl(cfg, at_time)
+    windows = fetch_recent_windows(cfg, at_time)
     if use_cache:
-        _CACHE[key] = (time.time(), res)
+        _WINDOWS_CACHE[at_key] = (time.time(), windows)
+    return windows
+
+
+def predict_live(cfg: dict | None = None, at_time: datetime | None = None,
+                 use_cache: bool = True, variant: str | None = None) -> dict:
+    """Cached wrapper: a live result is reused for cache_minutes so repeated
+    dashboard polls don't re-hit JSOC each time. `variant` selects an alternate
+    deployable model from config sharp_live.variants (default: the deployed
+    model). Never raises."""
+    cfg = cfg or load_config()
+    at_key = at_time.isoformat() if at_time else "now"
+    cache_key = (variant or "", at_key)
+    ttl = float(cfg["sharp_live"].get("cache_minutes", 15)) * 60
+    if use_cache:
+        hit = _CACHE.get(cache_key)
+        if hit and (time.time() - hit[0]) < ttl:
+            return hit[1]
+    res = _predict_live_impl(cfg, at_time, at_key, variant, use_cache)
+    if use_cache:
+        _CACHE[cache_key] = (time.time(), res)
     return res
 
 
-def _predict_live_impl(cfg: dict, at_time: datetime | None) -> dict:
-    model = load_model(cfg)
+def _predict_live_impl(cfg: dict, at_time: datetime | None, at_key: str,
+                       variant: str | None, use_cache: bool) -> dict:
+    label, _ = variant_spec(cfg, variant)
+    if label is None:
+        known = sorted(cfg["sharp_live"].get("variants", {}))
+        return {"available": False, "reason": f"unknown variant (known: {known})"}
+    model = load_model(cfg, variant)
     if model is None:
-        return {"available": False, "reason": "live SHARP model not trained yet"}
-    info = {"model": model.get("winner"),
+        return {"available": False, "reason": f"'{label}' model not trained yet",
+                "variant": variant or "", "variant_label": label}
+    info = {"model": model.get("winner"), "variant": variant or "", "variant_label": label,
             "test_tss": round(model.get("metrics", {}).get("tss", 0.0), 3),
             "trained_on": model.get("data_span")}
     try:
-        windows = fetch_recent_windows(cfg, at_time)
+        windows = _cached_windows(cfg, at_time, at_key, use_cache)
     except Exception as exc:                              # noqa: BLE001 (never raise)
         return {"available": False, "reason": f"JSOC fetch unavailable ({type(exc).__name__})", **info}
     if not windows:
@@ -122,6 +173,8 @@ def _predict_live_impl(cfg: dict, at_time: datetime | None) -> dict:
     return {
         "available": True,
         "model": model.get("winner"),
+        "variant": variant or "",
+        "variant_label": label,
         "test_tss": round(model.get("metrics", {}).get("tss", 0.0), 3),
         "as_of": (at_time or datetime.now(timezone.utc)).isoformat(),
         "operating_point": model.get("default_operating_point"),

@@ -577,13 +577,58 @@ def history_csv_string(cfg: dict | None = None) -> str:
     return buf.getvalue()
 
 
+def _history_key(row: dict) -> tuple:
+    """(kind, issued_ct) — NOT id: each machine's SQLite `id` is a local
+    autoincrement, so ids collide across machines. issued_ct (to-the-minute
+    Central time) is effectively unique per forecast and IS shared meaning."""
+    return (row.get("kind", ""), row.get("issued_ct", ""))
+
+
+def _history_rank(row: dict) -> tuple:
+    """Which of two duplicate rows to keep when merging: verified beats
+    pending, then whichever has more filled-in fields (a fuller record)."""
+    verified = 1 if row.get("status") == "verified" else 0
+    filled = sum(1 for v in row.values() if v not in (None, ""))
+    return (verified, filled)
+
+
+def _merge_history_rows(local_rows: list[dict], disk_rows: list[dict]) -> list[dict]:
+    """Union this machine's DB rows with whatever is already in the file on
+    disk (e.g. pushed by a teammate's machine), keyed by (kind, issued_ct).
+    A plain overwrite would silently delete every other machine's rows every
+    time the local notifier exports — this merges instead."""
+    merged: dict[tuple, dict] = {}
+    for row in disk_rows + local_rows:            # local processed last: wins ties (freshest)
+        k = _history_key(row)
+        if k not in merged or _history_rank(row) >= _history_rank(merged[k]):
+            merged[k] = row
+    rows = sorted(merged.values(), key=lambda r: r.get("issued_ct") or "")
+    for i, row in enumerate(rows, start=1):
+        row["id"] = str(i)                          # renumber for display only
+    return rows
+
+
 def export_csv(cfg: dict, path: str | None = None) -> str | None:
-    """Write the full prediction history to a CSV spreadsheet on disk (Excel/Sheets)."""
+    """Write the full prediction history to a CSV spreadsheet on disk (Excel/
+    Sheets), MERGED with whatever is already at that path — never a blind
+    overwrite, so other machines' rows (e.g. teammates', or a prior deploy's)
+    survive this machine's export."""
+    import csv
+    import io
     path = path or (cfg.get("notify", {}).get("history_csv")
                     or os.path.join(cfg["_project_root"], "prediction_history.csv"))
     try:
+        local_rows = list(csv.DictReader(io.StringIO(history_csv_string(cfg))))
+        disk_rows = []
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as fh:
+                disk_rows = list(csv.DictReader(fh))
+        merged = _merge_history_rows(local_rows, disk_rows)
         with open(path, "w", encoding="utf-8", newline="") as fh:
-            fh.write(history_csv_string(cfg))
+            w = csv.DictWriter(fh, fieldnames=_CSV_COLS, extrasaction="ignore")
+            w.writeheader()
+            for row in merged:
+                w.writerow(row)
         return path
     except OSError:
         return None

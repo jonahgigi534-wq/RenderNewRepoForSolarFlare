@@ -252,9 +252,21 @@ def main() -> int:
         print("  (live SHARP model not trained on disk — skipping; build via "
               "solarflare.sharpdata + solarflare.sharptrain)")
     import json as _json
-    se = server.sharp_live_endpoint(at="")               # now(): no current JSOC data here -> available False
+    se = server.sharp_live_endpoint(at="", variant="")   # now(): no current JSOC data here -> available False
     check("/api/sharp_live returns 200", getattr(se, "status_code", 200) == 200)
     check("sharp_live envelope has 'available'", "available" in _json.loads(se.body))
+    vlist = sl.list_variants(cfg)
+    check("sharp_live variants list includes the default", any(v["key"] == "" for v in vlist), vlist)
+    check("sharp_live variants list includes 'multiyear'", any(v["key"] == "multiyear" for v in vlist), vlist)
+    ve = server.sharp_live_variants_endpoint()
+    check("/api/sharp_live/variants returns 200", getattr(ve, "status_code", 200) == 200)
+    mv = sl.load_model(cfg, "multiyear")
+    if mv:
+        check("multiyear variant model loads", isinstance(mv, dict))
+        check("  multiyear artifact separate from default", mv is not m, "different objects")
+    else:
+        print("  (multiyear variant not trained on disk — skipping; build via "
+              "solarflare.train_variant multiyear)")
 
     print("\n" + "=" * 64)
     print("13) research artifacts: scorecard v2 + diagnosis + prospective + impact anchors")
@@ -282,6 +294,19 @@ def main() -> int:
           isinstance(ib.get("historical"), list) and len(ib.get("historical", [])) >= 3,
           len(ib.get("historical", [])))
     check("demo alert path exists (not fired here)", callable(getattr(almod, "demo_alert", None)))
+
+    # prediction_history.csv export must MERGE with what's on disk, not overwrite it —
+    # a teammate's machine's rows (not in this machine's local DB) must survive.
+    foreign_row = {c: "" for c in notifymod._CSV_COLS}
+    foreign_row.update(kind="alert", issued_ct="1999-01-01 00:00 CDT", status="pending")
+    merged = notifymod._merge_history_rows([], [foreign_row])
+    check("history merge keeps a disk-only (foreign machine) row",
+          any(r["issued_ct"] == "1999-01-01 00:00 CDT" for r in merged), merged)
+    dup_pending = {**foreign_row, "status": "pending"}
+    dup_verified = {**foreign_row, "status": "verified", "outcome": "HIT"}
+    merged2 = notifymod._merge_history_rows([dup_verified], [dup_pending])
+    check("history merge prefers verified over pending on a duplicate",
+          merged2[0]["status"] == "verified", merged2)
 
     print("\n" + ("ALL REGRESSION CHECKS PASSED." if not errors
                   else f"FAILED: {len(errors)} check(s) -> {errors}"))
