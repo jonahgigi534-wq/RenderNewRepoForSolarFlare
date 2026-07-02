@@ -435,9 +435,13 @@ scorecard:
   # noaa_baseline is deliberately NOT gated: its ground truth counts flare-days
   # from the GOES event list, which needs no AR attribution.
   min_label_attribution: 0.8
-  label_attribution_by_year:
-    2014: 0.94
-    2023: 0.15
+  label_attribution_by_year:   # measured by scripts/label_attribution.py, 2026-07-02
+    2013: 0.98                 # 80/82
+    2014: 0.94                 # 180/191
+    2015: 0.98                 # 130/132
+    2016: 0.94                 # 15/16
+    2023: 0.15                 # 43/289 — the catalog-decay year; 2017-2024 sweep
+                               # unfinished, rerun scripts/label_attribution.py 2017 2024
 
 # Dose-response experiment (python -m solarflare.experiments.dose_response):
 # gap vs. amount of live training data, fixed post-2014 test years.

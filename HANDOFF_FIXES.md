@@ -1,5 +1,36 @@
 # Handoff: verified holes + fix plan (red-team audit, 2026-07-02)
 
+## STATUS (session of 2026-07-02 ~18:00 CT, laptop WITHOUT datasets)
+
+All 12 items implemented and pushed (commits 8ea1136..d39dab3 + this one);
+both test suites green after every change; offline CI added and green.
+
+- **#2 DONE & VERIFIED LIVE**: /api/sharp_live at true now() returns
+  available:true from hmi.sharp_cea_720s_nrt (10 regions, data 74 min old,
+  full-disk P(M+)=0.38). Historical ?at= stays on the definitive series.
+- **#1 CODE DONE, REGEN PENDING**: label-attribution gate shipped
+  (config scorecard.min_label_attribution + scorecard.label_excluded_years);
+  measured rates 2013=0.98, 2014=0.94, 2015=0.98, 2016=0.94, 2023=0.15
+  (scripts/label_attribution.py; **2017-2024 sweep unfinished** — rerun
+  `python scripts/label_attribution.py 2017 2024`). **This machine has no
+  data/sharp_live datasets, so artifacts still carry 2023** — next session on
+  the data machine: `python -m solarflare.reproduce`, then list which
+  RESULTS.md numbers moved (expect: 2023 rows drop, operational means/CIs
+  recompute over 2013/15/16/17, dose_response test set = 2015-17).
+- #3/#4: autoDeploy:false; prospective-record reality documented in
+  render.yaml. **LFS billing still unchecked** — only the repo OWNER account
+  (solarflarepredictor-cmd) can see Settings -> Billing; a collaborator can't.
+- #5/#6/#7: one-model LRU in sharp_live._MODELS; DEMO_ALERT_TOKEN header gate
+  (+ email refuses to send with live SMTP and no token); caches LRU-capped 32,
+  ?at= rounded to the hour, per-key JSOC fetch lock.
+- #8/#9/#12: dashboard scorecard headlines FROZEN TSS (peak demoted to the
+  ceiling line); both panels state their differing leakage guards in-caption;
+  date-picker ceiling derives from the clock.
+- #10/#11: README "Rebuilding the research datasets" section with expected
+  counts; .github/workflows/ci.yml runs scripts/offline_test.py.
+- **HUMANS**: the paper's 2023 claims rest on the same AR-attributed labels —
+  re-check them (no AI edits to PAPER/ABSTRACT/BOARD, per the rules).
+
 For the next Claude Code session. Every finding below was **verified with
 evidence** (measured, not guessed) during a hostile audit on 2026-07-02.
 Work through them in order. Numbers/commands assume this repo root; the venv
