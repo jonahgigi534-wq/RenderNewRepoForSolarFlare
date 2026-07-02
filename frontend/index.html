@@ -496,7 +496,7 @@
   <div class="card" id="scorecard-card">
     <p class="map-caption" id="scorecard-note">—</p>
     <table class="tracks" id="scorecard-table" hidden aria-label="Benchmark vs operational skill">
-      <thead><tr><th>Model</th><th style="text-align:right">Benchmark TSS</th><th style="text-align:right">Real operational TSS</th><th style="text-align:right">Overstatement (95% CI)</th></tr></thead>
+      <thead><tr><th>Model</th><th style="text-align:right">Benchmark TSS (frozen thr.)</th><th style="text-align:right">Real operational TSS (frozen thr.)</th><th style="text-align:right">Overstatement (95% CI)</th></tr></thead>
       <tbody id="scorecard-body"></tbody>
     </table>
     <p class="map-caption" id="scorecard-frozen" hidden></p>
@@ -1178,23 +1178,33 @@ async function loadScorecard(){
   try{
     const r=await fetch(API_BASE+'/api/scorecard',{cache:'no-store'}); if(!r.ok) return;
     const j=await r.json(); const ts=j.test_sets||{};
+    const excl=Object.entries(ts.excluded_years||{});
     document.getElementById('scorecard-note').innerHTML='<span class="muted">'+escapeHtml(j.metric||'')+
-      '<br>benchmark test: '+escapeHtml(ts.benchmark||'')+'<br>operational test: '+escapeHtml(ts.operational||'')+'</span>';
+      '<br>benchmark test: '+escapeHtml(ts.benchmark||'')+'<br>operational test: '+escapeHtml(ts.operational||'')+
+      (excl.length?('<br>excluded from label-dependent scoring: '+excl.map(([y,why])=>
+        '<span title="'+escapeHtml(why)+'" style="border-bottom:1px dotted">'+escapeHtml(y)+'</span>').join(', ')+
+        ' (label-attribution gate — hover for why)'):'')+
+      '<br>leakage guard in this table: a model whose live training years overlap the benchmark test era gets NO benchmark cell; '+
+      'the dose–response chart below uses region-exclusion instead (see its caption).</span>';
+    // Headline = FROZEN (pre-committed) threshold — the deployment number. Peak
+    // TSS (the generous, threshold-free ceiling) is the secondary line below.
+    const fzOf=m=>m.frozen||{};
     document.getElementById('scorecard-body').innerHTML=(j.models||[]).map(m=>
       '<tr><td>'+escapeHtml(m.name)+' <span class="muted">· '+escapeHtml(m.detail)+'</span></td>'+
-      '<td class="num">'+(m.benchmark_tss!=null?Number(m.benchmark_tss).toFixed(2)+ciStr(m.benchmark_ci)
+      '<td class="num">'+(fzOf(m).benchmark_tss!=null?Number(fzOf(m).benchmark_tss).toFixed(2)+ciStr(fzOf(m).benchmark_ci)
         :'<span class="muted" title="'+escapeHtml(m.benchmark_note||'no leakage-free benchmark test for this model')+'">n/a</span>')+'</td>'+
-      '<td class="num"><b>'+Number(m.operational_tss).toFixed(2)+'</b>'+ciStr(m.operational_ci)+'</td>'+
-      '<td class="num" style="color:var(--x-class)">'+(m.gap!=null?'▼ '+Math.abs(Number(m.gap)).toFixed(2)+ciStr(m.gap_ci)
+      '<td class="num"><b>'+Number(fzOf(m).operational_tss!=null?fzOf(m).operational_tss:m.operational_tss).toFixed(2)+'</b>'+
+        ciStr(fzOf(m).operational_ci||m.operational_ci)+'</td>'+
+      '<td class="num" style="color:var(--x-class)">'+(fzOf(m).gap!=null?'▼ '+Math.abs(Number(fzOf(m).gap)).toFixed(2)+ciStr(fzOf(m).gap_ci)
         :'<span class="muted">—</span>')+'</td></tr>'
     ).join('');
     document.getElementById('scorecard-table').hidden=false;
-    // Frozen-threshold view — the deployment number (threshold committed in advance).
+    // Peak-TSS view — the threshold-free skill ceiling (generous by construction).
     const fz=document.getElementById('scorecard-frozen');
-    const fzRows=(j.models||[]).filter(m=>m.frozen&&m.frozen.benchmark_tss!=null).map(m=>
-      escapeHtml(m.name)+': '+Number(m.frozen.benchmark_tss).toFixed(2)+' → '+
-      Number(m.frozen.operational_tss).toFixed(2)+' (gap '+Number(m.frozen.gap).toFixed(2)+ciStr(m.frozen.gap_ci)+')');
-    if(fzRows.length){ fz.innerHTML='<b>Frozen threshold</b> <span class="muted">(committed in advance — the deployment scenario)</span>: '+fzRows.join(' · '); fz.hidden=false; }
+    const fzRows=(j.models||[]).filter(m=>m.benchmark_tss!=null).map(m=>
+      escapeHtml(m.name)+': '+Number(m.benchmark_tss).toFixed(2)+' → '+
+      Number(m.operational_tss).toFixed(2)+' (gap '+Number(m.gap).toFixed(2)+ciStr(m.gap_ci)+')');
+    if(fzRows.length){ fz.innerHTML='<b>Peak TSS</b> <span class="muted">(threshold-free ceiling — generous; the table above uses the threshold committed in advance)</span>: '+fzRows.join(' · '); fz.hidden=false; }
     // Self-corrected deployment: threshold recalibrated on ONE operational year,
     // frozen for the strictly-later years (python -m solarflare.recalibrate).
     const rc=document.getElementById('scorecard-recal');
@@ -1233,16 +1243,19 @@ async function loadScorecard(){
     const bench=(j.models||[]).find(m=>m.name==='Benchmark-trained');
     const yrsEl=document.getElementById('scorecard-years');
     if(bench&&bench.by_year&&Object.keys(bench.by_year).length){
-      yrsEl.innerHTML='<b>Per operational year</b> <span class="muted">(benchmark-trained model, peak TSS)</span>: '+
+      yrsEl.innerHTML='<b>Per operational year</b> <span class="muted">(benchmark-trained model, frozen deployment threshold)</span>: '+
         Object.entries(bench.by_year).sort().map(([y,v])=>
           '<span style="display:inline-block;background:#0a1326;border:1px solid #24304a;border-radius:6px;padding:2px 8px;margin:2px 3px">'+
-          y+': <b>'+Number(v.peak_tss).toFixed(2)+'</b>'+ciStr(v.peak_ci)+'</span>').join('');
+          y+': <b>'+Number(v.frozen_tss!=null?v.frozen_tss:v.peak_tss).toFixed(2)+'</b>'+ciStr(v.frozen_ci||v.peak_ci)+'</span>').join('');
       yrsEl.hidden=false;
     }
     const f=j.findings||{};
+    const fgap=(f.frozen_overstatement_gap!=null)?f.frozen_overstatement_gap:f.overstatement_gap;
+    const fgapCI=(f.frozen_overstatement_gap!=null)?f.frozen_overstatement_gap_ci:f.overstatement_gap_ci;
     document.getElementById('scorecard-finding').innerHTML='<b>Finding:</b> benchmark scores <b>'+
       (f.benchmarks_overstate?'overstate':'match')+'</b> real operational skill'+
-      (f.benchmarks_overstate?(' by ~'+Number(f.overstatement_gap).toFixed(2)+' TSS'+ciStr(f.overstatement_gap_ci)+
+      (f.benchmarks_overstate?(' by ~'+Number(fgap).toFixed(2)+' TSS at the deployed threshold'+ciStr(fgapCI)+
+        ' (peak-TSS gap ~'+Number(f.overstatement_gap).toFixed(2)+')'+
         (f.gap_positive_every_year?' — positive in every tested year':'')):'')+
       '; training on live data <b>'+(f.live_training_closes_gap?'closes':'does NOT close')+'</b> the gap.'+
       ' <span class="muted">Zero line = climatology (a constant forecast scores TSS 0).</span>';
@@ -1257,7 +1270,11 @@ async function loadScorecard(){
     if(j.dose_response&&j.dose_response.steps&&j.dose_response.steps.length){
       const de=document.getElementById('scorecard-dose');
       de.innerHTML='<b style="font-size:13px">Dose–response: gap vs. amount of live training data</b> '+
-        '<span class="muted" style="font-size:12px">— identical fixed test years for every point</span><br>'+
+        '<span class="muted" style="font-size:12px">— identical fixed test years for every point. '+
+        'Leakage guard here: region-exclusion (training windows from regions in the benchmark test '+
+        'split are dropped), so benchmark points exist for 2011/2012-containing steps; the 2×2 table '+
+        'above instead withholds the multi-year model’s benchmark cell entirely — a stricter guard '+
+        'for the same overlap.</span><br>'+
         doseSVG(j.dose_response);
       de.hidden=false;
     }
@@ -1267,10 +1284,10 @@ async function loadScorecard(){
       document.getElementById('scorecard-storm').innerHTML=
         '<b style="font-size:13px">It generalises: storm model shows the same optimism</b> '+
         '<span class="muted" style="font-size:12px">('+escapeHtml(s.task||'')+')</span><br>'+
-        '<span class="map-caption">Peak TSS '+Number(sp.benchmark_tss).toFixed(2)+' → '+Number(sp.operational_tss).toFixed(2)+
-        ' <span style="color:var(--x-class)">▼ '+Math.abs(sp.gap).toFixed(2)+'</span>'+ciStr(sp.gap_ci)+
-        (sf.gap!=null?(' · frozen threshold '+Number(sf.benchmark_tss).toFixed(2)+' → '+Number(sf.operational_tss).toFixed(2)+
-        ' <span style="color:var(--x-class)">▼ '+Math.abs(sf.gap).toFixed(2)+'</span>'+ciStr(sf.gap_ci)):'')+'</span>';
+        '<span class="map-caption">'+(sf.gap!=null?('Frozen threshold '+Number(sf.benchmark_tss).toFixed(2)+' → '+Number(sf.operational_tss).toFixed(2)+
+        ' <span style="color:var(--x-class)">▼ '+Math.abs(sf.gap).toFixed(2)+'</span>'+ciStr(sf.gap_ci)+' · '):'')+
+        'peak TSS '+Number(sp.benchmark_tss).toFixed(2)+' → '+Number(sp.operational_tss).toFixed(2)+
+        ' <span style="color:var(--x-class)">▼ '+Math.abs(sp.gap).toFixed(2)+'</span>'+ciStr(sp.gap_ci)+'</span>';
       document.getElementById('scorecard-storm').hidden=false;
     }
     // NOAA official baseline comparison.
