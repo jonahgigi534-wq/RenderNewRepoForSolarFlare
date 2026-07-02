@@ -1145,14 +1145,16 @@ async function loadScorecard(){
       '<br>benchmark test: '+escapeHtml(ts.benchmark||'')+'<br>operational test: '+escapeHtml(ts.operational||'')+'</span>';
     document.getElementById('scorecard-body').innerHTML=(j.models||[]).map(m=>
       '<tr><td>'+escapeHtml(m.name)+' <span class="muted">· '+escapeHtml(m.detail)+'</span></td>'+
-      '<td class="num">'+Number(m.benchmark_tss).toFixed(2)+ciStr(m.benchmark_ci)+'</td>'+
+      '<td class="num">'+(m.benchmark_tss!=null?Number(m.benchmark_tss).toFixed(2)+ciStr(m.benchmark_ci)
+        :'<span class="muted" title="'+escapeHtml(m.benchmark_note||'no leakage-free benchmark test for this model')+'">n/a</span>')+'</td>'+
       '<td class="num"><b>'+Number(m.operational_tss).toFixed(2)+'</b>'+ciStr(m.operational_ci)+'</td>'+
-      '<td class="num" style="color:var(--x-class)">▼ '+Math.abs(Number(m.gap)).toFixed(2)+ciStr(m.gap_ci)+'</td></tr>'
+      '<td class="num" style="color:var(--x-class)">'+(m.gap!=null?'▼ '+Math.abs(Number(m.gap)).toFixed(2)+ciStr(m.gap_ci)
+        :'<span class="muted">—</span>')+'</td></tr>'
     ).join('');
     document.getElementById('scorecard-table').hidden=false;
     // Frozen-threshold view — the deployment number (threshold committed in advance).
     const fz=document.getElementById('scorecard-frozen');
-    const fzRows=(j.models||[]).filter(m=>m.frozen).map(m=>
+    const fzRows=(j.models||[]).filter(m=>m.frozen&&m.frozen.benchmark_tss!=null).map(m=>
       escapeHtml(m.name)+': '+Number(m.frozen.benchmark_tss).toFixed(2)+' → '+
       Number(m.frozen.operational_tss).toFixed(2)+' (gap '+Number(m.frozen.gap).toFixed(2)+ciStr(m.frozen.gap_ci)+')');
     if(fzRows.length){ fz.innerHTML='<b>Frozen threshold</b> <span class="muted">(committed in advance — the deployment scenario)</span>: '+fzRows.join(' · '); fz.hidden=false; }

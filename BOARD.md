@@ -43,26 +43,29 @@ data? We test whether benchmark scores survive contact with operational reality.
 ## CENTER PANEL — "The Findings" (the money panel)
 
 **FIG 1 — the gap** *(largest figure on the board)*
-Caption: *Benchmark TSS 0.77 vs. live 0.35–0.64 across three periods (95% CIs).
-The benchmark beats the upper CI in every period.*
+Caption: *Benchmark TSS 0.77 vs. live 0.35–0.64 across three periods
+(cluster-bootstrap 95% CIs). The benchmark beats the live point estimate in all
+three periods and the upper CI in two (2014, 2023).*
 
 **FIG 2 — the 2×2** *(second-largest)*
 Caption: *Training on live data does NOT close the gap → the overstatement is in
 the benchmark's test set, not the training data.*
 
-**FIG 7 — the fix works** *(the closer)*
-Caption: *A threshold recalibrated on 2014 and frozen beats the benchmark-tuned
-default on unseen 2015 (+0.19) and 2023 (+0.33) — CIs don't overlap. Recalibration
-recovers the skill that retraining can't.*
+**FIG 7 — the fix works, and it's free** *(the closer)*
+Caption: *Re-tuning the threshold for TSS instead of F1 recovers the lost skill
+on unseen years (+0.19/+0.33, paired gain CIs exclude zero) — and the benchmark's
+own validation data suffices: a threshold recalibrated on live 2014 does no
+better (increment ≈ 0). The fix is the threshold's objective, not live data.*
 
 **FIG 4 — the accuracy illusion**
 Caption: *A zero-skill "always no-flare" model scores 96% accuracy (99% at a 1%
 base rate) with zero skill — and beats a real model on accuracy. Accuracy lies.*
 
 **Headline results box** *(bold, boxed)*
-- Benchmark overstates operational skill by **up to 2×** (H₀ rejected, all periods).
+- Benchmark overstates operational skill by **up to 2×** (H₀ rejected in 2014 & 2023).
 - Retraining on live data **does not** close the gap (H₁ᵦ **refuted**).
-- **Recalibrating on live data DOES** — validated on unseen years (+0.19/+0.33 TSS).
+- **Fixing the threshold objective DOES** (TSS, not F1) — validated on unseen
+  years (+0.19/+0.33 TSS, paired CIs exclude zero) — **and needs no live data**.
 - The gap is **condition-dependent** (largest at solar max).
 
 ---
@@ -84,8 +87,8 @@ the features that shift most — it trusts its least-stable inputs.
 > — not to collect more training data.
 
 **8. Broader impact / future work** *(2–3 lines)*
-A reproducible recipe for honest space-weather forecast evaluation. Next: recalibrate
-on live data, and extend to CMEs and geomagnetic storms.
+A reproducible recipe for honest space-weather forecast evaluation. Next: ship the
+TSS-objective threshold in deployment, and extend to CMEs and geomagnetic storms.
 
 ---
 
@@ -98,4 +101,4 @@ on live data, and extend to CMEs and geomagnetic storms.
 - One accent color for "benchmark," one for "live" — keep it consistent with the figures (blue = benchmark, orange = live).
 - Bold every number. Judges scan digits.
 - White space > text. Cut any sentence that isn't a claim or a number.
-- Have the 245-word abstract (ABSTRACT.md) printed and available, not necessarily on the board.
+- Have the ≤250-word abstract (ABSTRACT.md) printed and available, not necessarily on the board.

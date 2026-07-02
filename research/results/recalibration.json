@@ -1,58 +1,102 @@
 {
   "calibration_period": "2014_solar_max",
   "default_threshold": 0.104,
+  "default_threshold_objective": "max F1 on benchmark validation",
+  "benchmark_val_tss_threshold": 0.031,
+  "benchmark_val_tss_source": "max TSS on benchmark validation (model's stored high_recall operating point; no operational data)",
   "recalibrated_threshold": 0.035,
   "tss_on_calibration_period": 0.649,
+  "ci_method": "cluster bootstrap by active region, 1000 replicates",
   "tests": {
     "2015_declining": {
       "default": {
         "threshold": 0.104,
         "tss": 0.641,
         "tss_ci95": [
-          0.532,
-          0.749
+          0.153,
+          0.81
         ],
         "recall": 0.667,
         "precision": 0.407,
         "hss": 0.489
       },
+      "benchmark_val_tss": {
+        "threshold": 0.031,
+        "tss": 0.831,
+        "tss_ci95": [
+          0.69,
+          0.922
+        ],
+        "recall": 0.947,
+        "precision": 0.177,
+        "hss": 0.266
+      },
       "recalibrated": {
         "threshold": 0.035,
         "tss": 0.835,
         "tss_ci95": [
-          0.772,
-          0.889
+          0.676,
+          0.92
         ],
         "recall": 0.933,
         "precision": 0.199,
         "hss": 0.299
       },
-      "tss_gain": 0.194
+      "tss_gain": 0.194,
+      "tss_gain_ci95": [
+        0.062,
+        0.633
+      ],
+      "live_increment_over_benchval": 0.004,
+      "live_increment_ci95": [
+        -0.054,
+        0.025
+      ]
     },
     "2023_rising_max": {
       "default": {
         "threshold": 0.104,
         "tss": 0.334,
         "tss_ci95": [
-          0.165,
-          0.519
+          0.075,
+          0.632
         ],
         "recall": 0.406,
         "precision": 0.043,
         "hss": 0.064
       },
+      "benchmark_val_tss": {
+        "threshold": 0.031,
+        "tss": 0.662,
+        "tss_ci95": [
+          0.464,
+          0.803
+        ],
+        "recall": 0.906,
+        "precision": 0.029,
+        "hss": 0.041
+      },
       "recalibrated": {
         "threshold": 0.035,
         "tss": 0.661,
         "tss_ci95": [
-          0.543,
-          0.759
+          0.459,
+          0.817
         ],
         "recall": 0.875,
         "precision": 0.031,
         "hss": 0.046
       },
-      "tss_gain": 0.327
+      "tss_gain": 0.327,
+      "tss_gain_ci95": [
+        0.071,
+        0.617
+      ],
+      "live_increment_over_benchval": -0.001,
+      "live_increment_ci95": [
+        -0.074,
+        0.036
+      ]
     }
   }
 }

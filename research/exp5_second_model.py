@@ -55,14 +55,14 @@ result = {"architecture": "lightgbm",
 
 for name, t0, t1 in PERIODS:
     d = load_or_build(name, t0, t1, cfg)
-    X3d, y = d["X3d"], np.asarray(d["y"])
+    X3d, y, groups = d["X3d"], np.asarray(d["y"]), d["groups"]
     Xf = dataio.build_matrix(X3d, cfg)
     proba = model.predict_proba(Xf)[:, 1]
     rec = {"n": int(len(y)), "positives": int(y.sum()), "by_operating_point": {}}
     for op_name, op in ops.items():
         thr = float(op["threshold"])
         r = evaluate.full_report(y, (proba >= thr).astype(int))
-        lo, hi = bootstrap_tss_ci(y, proba, thr)
+        lo, hi = bootstrap_tss_ci(y, proba, thr, groups)
         rec["by_operating_point"][op_name] = {
             "threshold": round(thr, 3), "tss": round(r["tss"], 3), "tss_ci95": [lo, hi],
             "recall": round(r["recall"], 3), "precision": round(r["precision"], 3)}

@@ -37,12 +37,16 @@ ax.axhline(BENCH_TSS, ls="--", color=C_BENCH, lw=2, label=f"SWAN-SF benchmark ({
 ax.bar(x - w/2, [r["tss"] for r in bal], w, yerr=err(bal), capsize=4, color=C_LIVE, label="live @ default")
 ax.bar(x + w/2, [r["tss"] for r in hr], w, yerr=err(hr), capsize=4, color=C_HR, label="live @ high-recall")
 ax.set_xticks(x); ax.set_xticklabels(labels); ax.set_ylabel("TSS (True Skill Statistic)")
-ax.set_ylim(0, 1); ax.set_title("Benchmark overstates live operational skill (all periods)")
+ax.set_ylim(0, 1)
+ax.set_title("Benchmark sits above live skill in every period\n(above the 95% CI in 2014 & 2023)")
 ax.legend(loc="upper right", framealpha=0.95)
 fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig1_multiperiod.png")); plt.close(fig)
 
 # ---------- Fig 2: Exp 3 the 2x2 scorecard ----------
-models = sc["models"]
+# Models without a leakage-free benchmark cell (benchmark_tss null) are plotted
+# operational-only in the footnote, not as bars.
+models = [m for m in sc["models"] if m.get("benchmark_tss") is not None]
+excluded = [m for m in sc["models"] if m.get("benchmark_tss") is None]
 names = [m["name"].replace(" (multi-year)", "\n(multi-year)") for m in models]
 btss = [m["benchmark_tss"] for m in models]; otss = [m["operational_tss"] for m in models]
 n_years = len(models[0].get("operational_years_used", [])) or 1
@@ -57,8 +61,13 @@ for i, m in enumerate(models):
 ax.set_xticks(x); ax.set_xticklabels(names)
 ax.set_ylabel(sc.get("metric", "TSS").split(" (")[0])
 ax.set_ylim(0, 1.16)
-ax.set_title("Retraining on live data does not close the gap\n(multi-year narrows it; difference n.s.)")
+ax.set_title("Retraining on live data does not close the gap\n"
+             "(single-year widens it; multi-year cell not leakage-free, §8)")
 ax.legend(loc="lower center"); ax.bar_label(b1, fmt="%.2f", padding=2); ax.bar_label(b2, fmt="%.2f", padding=2)
+if excluded:
+    note = "; ".join(f"{m['name']}: operational TSS {m['operational_tss']:.2f} "
+                     "(no leakage-free benchmark test)" for m in excluded)
+    fig.text(0.99, 0.005, note, ha="right", fontsize=8, color="#495057")
 fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig2_scorecard_2x2.png")); plt.close(fig)
 
 # ---------- Fig 3: Exp 2 KS distribution shift ----------
@@ -123,30 +132,36 @@ l1, n1 = ax.get_legend_handles_labels(); l2, n2 = ax2.get_legend_handles_labels(
 ax.legend(l1 + l2, n1 + n2, loc="center right")
 fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig6_pca_scree.png")); plt.close(fig)
 
-# ---------- Fig 7: Exp 4 — the validated recalibration fix ----------
+# ---------- Fig 7: Exp 4 — the fix decomposed (threshold objective, not live data) ----------
 rc_path = os.path.join(RESULTS, "recalibration.json")
 if os.path.exists(rc_path):
     rc = json.load(open(rc_path))
     tests = [("2015_declining", "2015 (unseen)"), ("2023_rising_max", "2023 (unseen)")]
     labels = [t[1] for t in tests]
-    dflt = [rc["tests"][t[0]]["default"] for t in tests]
-    recal = [rc["tests"][t[0]]["recalibrated"] for t in tests]
-    x = np.arange(len(labels)); w = 0.36
-    fig, ax = plt.subplots(figsize=(7.2, 4.4))
-    ax.axhline(BENCH_TSS, ls="--", color=C_BENCH, lw=2, label=f"benchmark score ({BENCH_TSS})")
-    b1 = ax.bar(x - w/2, [r["tss"] for r in dflt], w, yerr=err(dflt), capsize=4,
-                color="#adb5bd", label=f"default threshold ({rc['default_threshold']})")
-    b2 = ax.bar(x + w/2, [r["tss"] for r in recal], w, yerr=err(recal), capsize=4,
-                color=C_LIVE, label=f"recalibrated on 2014, frozen ({rc['recalibrated_threshold']})")
-    for i in range(len(labels)):
-        gain = recal[i]["tss"] - dflt[i]["tss"]
-        ax.annotate(f"+{gain:.2f}", (x[i] + w/2 + w * 0.62, recal[i]["tss"] / 2),
-                    ha="left", color="#2b8a3e", fontweight="bold", fontsize=12)
+    arms = [("default", f"default {rc['default_threshold']} (val-F1)", "#adb5bd"),
+            ("benchmark_val_tss",
+             f"benchmark-val TSS {rc.get('benchmark_val_tss_threshold', '')} (no live data)",
+             C_BENCH),
+            ("recalibrated",
+             f"live-recalibrated {rc['recalibrated_threshold']} (frozen on 2014)", C_LIVE)]
+    arms = [(k, lab, c) for k, lab, c in arms if k in rc["tests"][tests[0][0]]]
+    x = np.arange(len(labels)); w = 0.26
+    fig, ax = plt.subplots(figsize=(7.8, 4.8))
+    for j, (key, lab, color) in enumerate(arms):
+        rows = [rc["tests"][t[0]][key] for t in tests]
+        b = ax.bar(x + (j - 1) * w, [r["tss"] for r in rows], w, yerr=err(rows),
+                   capsize=3, color=color, label=lab)
+        ax.bar_label(b, fmt="%.2f", padding=2, fontsize=9)
+    for i, (t, _) in enumerate(tests):
+        g = rc["tests"][t]["tss_gain"]; ci = rc["tests"][t].get("tss_gain_ci95")
+        txt = f"paired gain +{g:.2f}" + (f"\n[{ci[0]:+.2f}, {ci[1]:+.2f}]" if ci else "")
+        ax.annotate(txt, (x[i], 1.02), ha="center", color="#2b8a3e",
+                    fontweight="bold", fontsize=9)
     ax.set_xticks(x); ax.set_xticklabels(labels); ax.set_ylabel("live TSS")
-    ax.set_ylim(0, 1.05)
-    ax.set_title("The fix works: a threshold recalibrated on 2014 transfers to unseen years")
-    ax.legend(loc="lower right", framealpha=0.95)
-    ax.bar_label(b1, fmt="%.2f", padding=2); ax.bar_label(b2, fmt="%.2f", padding=2)
+    ax.set_ylim(0, 1.22)
+    ax.set_title("The fix is the threshold objective (TSS, not F1) — live data adds nothing:\n"
+                 "the benchmark's own val-TSS threshold matches the live-recalibrated one")
+    ax.legend(loc="lower right", framealpha=0.95, fontsize=8.5)
     fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig7_recalibration_fix.png")); plt.close(fig)
     print("wrote fig7")
 

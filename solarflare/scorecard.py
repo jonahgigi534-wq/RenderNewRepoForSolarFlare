@@ -30,6 +30,16 @@ Statistical robustness (v2):
   * RELIABILITY data — binned predicted-vs-observed frequencies on the pooled
     operational years (+ Brier score), for the calibration diagram.
 
+Protocol hardening (v3):
+  * NO BACKWARDS TESTING — every live-trained model is scored only on years
+    strictly after its training data (a deployed system cannot be tested on its
+    past), and cross-model gap comparisons use identical year sets.
+  * BENCHMARK LEAKAGE GUARD — a model whose live training years overlap the
+    SWAN-SF test split's era (the multi-year model: JSOC 2011+2012 vs a test
+    split spanning late-2011..2012-03) gets no benchmark/gap cells: the same
+    active regions would sit in both training and test, and no leakage-free
+    benchmark subset exists. It is scored on operational years only.
+
 Both models are trained in-memory (save=False) so the deployed model is untouched.
 Writes skill_scorecard.json for the dashboard "Model Skill Scorecard" panel.
 
@@ -210,6 +220,16 @@ def run(cfg: dict | None = None) -> dict:
     y_by_set = {"benchmark": dp["y"][ite]}
     X_by_set = {"benchmark": dataio.build_matrix(dp["X3d"][ite], cfg)}
     groups_by_set = {"benchmark": dp["groups"][ite]}
+
+    # Leakage guard: the multi-year model trains on live JSOC years that overlap
+    # the SWAN-SF test split's era — same Sun, so the same active regions appear
+    # in its training data and the benchmark test. When the eras overlap, NO
+    # leakage-free benchmark cell exists for that model (the test split's whole
+    # time span falls inside the training era) and it is scored on operational
+    # years only.
+    bench_test_years = {int(str(dp["end_times"][i])[:4]) for i in ite}
+    multi_bench_leaky = MULTI in models and bool(
+        set(multi_train_years) & bench_test_years)
     years = detect_operational_years(dd)
     if not years:
         raise RuntimeError("no operational dataset_YYYY.npz found in data/sharp_live")
@@ -231,8 +251,12 @@ def run(cfg: dict | None = None) -> dict:
     op_sets = [str(yr) for yr in years]
 
     def _valid_sets(model_name: str) -> list[str]:
-        """The multi-year model may only be scored on years strictly AFTER its
-        training span; the other two models can use every detected year."""
+        """Deployment-faithful test protocol: every LIVE-trained model is scored
+        only on years strictly AFTER its training data — a deployed system can
+        never be tested on its own past. The benchmark model (trained 2010-2012)
+        may use every detected year (all are 2013+)."""
+        if model_name == "Live-trained":
+            return [s for s in op_sets if int(s) > 2014]
         if model_name == MULTI:
             cut = max(multi_train_years) if multi_train_years else 2014
             return [s for s in op_sets if int(s) > cut]
@@ -243,9 +267,7 @@ def run(cfg: dict | None = None) -> dict:
         sets_m = _valid_sets(m)
         if not sets_m:
             continue                                   # no usable operational year yet
-        yb, pb = y_by_set["benchmark"], p_by_set_model["benchmark"][m]
-        b_peak = peak_tss(yb, pb)
-        b_frozen = frozen_tss(yb, pb, thr[m])
+        leaky = (m == MULTI and multi_bench_leaky)
         by_year = {}
         for s in sets_m:
             ys_, ps_ = y_by_set[s], p_by_set_model[s][m]
@@ -262,61 +284,102 @@ def run(cfg: dict | None = None) -> dict:
         op_frozen_boot = np.mean([boot[s][m]["frozen"] for s in sets_m], axis=0)
         op_peak = float(np.mean([by_year[s]["peak_tss"] for s in sets_m]))
         op_frozen = float(np.mean([by_year[s]["frozen_tss"] for s in sets_m]))
-        gap_boot = boot["benchmark"][m]["peak"] - op_peak_boot
-        gap_frozen_boot = boot["benchmark"][m]["frozen"] - op_frozen_boot
-        rows.append({
+        row = {
             "name": m, "detail": details[m],
             "operational_years_used": [int(s) for s in sets_m],
-            # Backward-compatible headline keys (peak TSS, mean over years):
-            "benchmark_tss": round(b_peak, 3),
             "operational_tss": round(op_peak, 3),
-            "gap": round(b_peak - op_peak, 3),
-            # v2 additions:
-            "benchmark_ci": _ci(boot["benchmark"][m]["peak"], level),
             "operational_ci": _ci(op_peak_boot, level),
-            "gap_ci": _ci(gap_boot, level),
-            "frozen": {
-                "threshold": round(thr[m], 3),
-                "benchmark_tss": round(b_frozen, 3),
-                "benchmark_ci": _ci(boot["benchmark"][m]["frozen"], level),
-                "operational_tss": round(op_frozen, 3),
-                "operational_ci": _ci(op_frozen_boot, level),
-                "gap": round(b_frozen - op_frozen, 3),
-                "gap_ci": _ci(gap_frozen_boot, level),
-            },
             "by_year": by_year,
-            "_gap_boot": gap_boot,                # internal, stripped before writing
-            "_gap_frozen_boot": gap_frozen_boot,
-        })
+        }
+        if leaky:
+            # No leakage-free benchmark cell exists — operational columns only.
+            row.update({
+                "benchmark_tss": None, "gap": None,
+                "benchmark_ci": None, "gap_ci": None,
+                "benchmark_note": (
+                    "no leakage-free benchmark test exists for this model: its "
+                    "live training years (JSOC "
+                    + "+".join(map(str, multi_train_years)) +
+                    ") cover the SWAN-SF test split's era, so the same active "
+                    "regions appear in training and test"),
+                "frozen": {
+                    "threshold": round(thr[m], 3),
+                    "benchmark_tss": None, "benchmark_ci": None,
+                    "operational_tss": round(op_frozen, 3),
+                    "operational_ci": _ci(op_frozen_boot, level),
+                    "gap": None, "gap_ci": None,
+                },
+            })
+        else:
+            yb, pb = y_by_set["benchmark"], p_by_set_model["benchmark"][m]
+            b_peak = peak_tss(yb, pb)
+            b_frozen = frozen_tss(yb, pb, thr[m])
+            gap_boot = boot["benchmark"][m]["peak"] - op_peak_boot
+            gap_frozen_boot = boot["benchmark"][m]["frozen"] - op_frozen_boot
+            row.update({
+                # Backward-compatible headline keys (peak TSS, mean over years):
+                "benchmark_tss": round(b_peak, 3),
+                "gap": round(b_peak - op_peak, 3),
+                "benchmark_ci": _ci(boot["benchmark"][m]["peak"], level),
+                "gap_ci": _ci(gap_boot, level),
+                "frozen": {
+                    "threshold": round(thr[m], 3),
+                    "benchmark_tss": round(b_frozen, 3),
+                    "benchmark_ci": _ci(boot["benchmark"][m]["frozen"], level),
+                    "operational_tss": round(op_frozen, 3),
+                    "operational_ci": _ci(op_frozen_boot, level),
+                    "gap": round(b_frozen - op_frozen, 3),
+                    "gap_ci": _ci(gap_frozen_boot, level),
+                },
+                "_gap_boot": gap_boot,            # internal, stripped before writing
+                "_gap_frozen_boot": gap_frozen_boot,
+            })
+        rows.append(row)
 
     bench = next(r for r in rows if r["name"] == "Benchmark-trained")
     live = next(r for r in rows if r["name"] == "Live-trained")
-    # Does live training close the gap? CI on (benchmark model's gap - live
-    # model's gap): > 0 means live training genuinely shrinks the gap.
-    closes_boot = bench["_gap_boot"] - live["_gap_boot"]
+    # Does live training close the gap? Compare the two models' gaps ON THE SAME
+    # operational years (the live model's valid years, a subset of the benchmark
+    # model's — comparing gaps averaged over different year sets would be
+    # apples-to-oranges): > 0 means live training genuinely shrinks the gap.
+    live_years = [str(y) for y in live["operational_years_used"]]
+    bench_op_same_boot = np.mean(
+        [boot[s]["Benchmark-trained"]["peak"] for s in live_years], axis=0)
+    bench_gap_same_boot = (boot["benchmark"]["Benchmark-trained"]["peak"]
+                           - bench_op_same_boot)
+    closes_boot = bench_gap_same_boot - live["_gap_boot"]
     closes_ci = _ci(closes_boot, level)
+    bench_gap_same = round(bench["benchmark_tss"] - float(
+        np.mean([bench["by_year"][s]["peak_tss"] for s in live_years])), 3)
 
-    # Does MORE live data close the gap? Compare single-year vs multi-year live
-    # models on the SAME (strictly post-training) years — paired via the shared
-    # bootstrap replicates.
+    # Does MORE live data help? The multi-year model has no leakage-free
+    # benchmark cell (see the leakage guard), so gap-vs-gap is not defined for
+    # it; the meaningful comparison is OPERATIONAL skill on identical years,
+    # paired via the shared bootstrap replicates.
     more_data = None
     multi = next((r for r in rows if r["name"] == MULTI), None)
     if multi is not None:
         yrs = [str(y) for y in multi["operational_years_used"]]
-        live_op_same = np.mean([boot[s]["Live-trained"]["peak"] for s in yrs], axis=0)
-        live_gap_same_boot = boot["benchmark"]["Live-trained"]["peak"] - live_op_same
-        diff_boot = live_gap_same_boot - multi["_gap_boot"]   # >0 => multi-year gap smaller
-        live_gap_same = round(live["benchmark_tss"] - float(
-            np.mean([live["by_year"][s]["peak_tss"] for s in yrs])), 3)
+        single_op_boot = np.mean([boot[s]["Live-trained"]["peak"] for s in yrs], axis=0)
+        multi_op_boot = np.mean([boot[s][MULTI]["peak"] for s in yrs], axis=0)
+        diff_boot = multi_op_boot - single_op_boot            # >0 => more data helps
+        single_op = float(np.mean(
+            [live["by_year"][s]["peak_tss"] if s in live["by_year"]
+             else peak_tss(y_by_set[s], p_by_set_model[s]["Live-trained"])
+             for s in yrs]))
         more_data = {
             "years_compared": [int(s) for s in yrs],
-            "single_year_gap_same_years": live_gap_same,
-            "multi_year_gap": multi["gap"],
-            "more_data_closes_gap": bool(multi["gap"] < live_gap_same),
-            "single_minus_multi_gap_ci": _ci(diff_boot, level),
+            "single_year_operational_tss": round(single_op, 3),
+            "multi_year_operational_tss": multi["operational_tss"],
+            "more_data_improves_operational_skill": bool(
+                multi["operational_tss"] > round(single_op, 3)),
+            "multi_minus_single_operational_ci": _ci(diff_boot, level),
+            "note": ("operational-skill comparison on identical years; no "
+                     "leakage-free benchmark cell exists for the multi-year "
+                     "model, so gap-vs-gap is not defined for it"),
         }
     for r in rows:
-        r.pop("_gap_boot"), r.pop("_gap_frozen_boot")
+        r.pop("_gap_boot", None), r.pop("_gap_frozen_boot", None)
 
     # Reliability on the pooled operational years (each model only on the years
     # it may legitimately be scored on).
@@ -340,6 +403,14 @@ def run(cfg: dict | None = None) -> dict:
             "bootstrap": f"{B} cluster-bootstrap resamples (whole active regions, "
                          "because windows of one region are correlated), "
                          f"{int(level*100)}% percentile CIs, paired across models",
+            "test_protocol": "every live-trained model is scored only on "
+                             "operational years strictly after its training data "
+                             "(never backwards in time); cross-model gap "
+                             "comparisons use identical year sets",
+            "leakage_guard": "a model whose live training years overlap the "
+                             "benchmark test split's era gets no benchmark/gap "
+                             "cells (same active regions would appear in "
+                             "training and test) — operational columns only",
             "climatology_note": "a constant-probability (climatology) forecast has "
                                 "TSS = 0 by construction — the zero line IS the "
                                 "climatology baseline",
@@ -362,7 +433,9 @@ def run(cfg: dict | None = None) -> dict:
             "frozen_overstatement_gap_ci": bench["frozen"]["gap_ci"],
             "gap_positive_every_year": bool(all(
                 bench["benchmark_tss"] - v["peak_tss"] > 0 for v in bench["by_year"].values())),
-            "live_training_closes_gap": bool(live["gap"] < bench["gap"]),
+            "live_training_closes_gap": bool(live["gap"] < bench_gap_same),
+            "gap_comparison_years": [int(s) for s in live_years],
+            "benchmark_gap_on_comparison_years": bench_gap_same,
             "live_minus_benchmark_gap_ci": closes_ci,
             "more_live_data": more_data,
         },

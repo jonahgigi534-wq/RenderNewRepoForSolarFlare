@@ -82,6 +82,9 @@ def write_results_md(cfg: dict) -> str:
         for m in sc.get("models", []):
             add(_fmt_row(m))
         add("")
+        for m in sc.get("models", []):
+            if m.get("benchmark_note"):
+                add(f"- *{m['name']}*: {m['benchmark_note']}.")
         f = sc.get("findings", {})
         add(f"- Benchmarks overstate operational skill: **{f.get('benchmarks_overstate')}** "
             f"— gap {_num(f.get('overstatement_gap'))}{_ci(f.get('overstatement_gap_ci'))}, "
@@ -92,7 +95,14 @@ def write_results_md(cfg: dict) -> str:
             f"(benchmark-gap minus live-gap CI {f.get('live_minus_benchmark_gap_ci')} — "
             "negative means live training WIDENED it).")
         md = f.get("more_live_data")
-        if md:
+        if md and "multi_year_operational_tss" in md:
+            add(f"- MORE live data ({'+'.join(map(str, md.get('years_compared', [])))} tested): "
+                f"single-year operational TSS {_num(md.get('single_year_operational_tss'), '.3f')} "
+                f"vs multi-year {_num(md.get('multi_year_operational_tss'), '.3f')} — improves it: "
+                f"**{md.get('more_data_improves_operational_skill')}** "
+                f"(difference CI {md.get('multi_minus_single_operational_ci')}). "
+                f"{md.get('note', '')}")
+        elif md:                                      # legacy artifact shape
             add(f"- MORE live data ({'+'.join(map(str, md.get('years_compared', [])))} tested): "
                 f"single-year gap {_num(md.get('single_year_gap_same_years'))} vs multi-year gap "
                 f"{_num(md.get('multi_year_gap'))} — closes it: **{md.get('more_data_closes_gap')}** "

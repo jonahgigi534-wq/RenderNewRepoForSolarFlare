@@ -5,7 +5,7 @@ commit history (`git log`) and model training metadata (`models/*.meta.json`).
 Use this as the backbone for Form 1A's experimentation dates and as a data-book
 appendix — every entry below is independently verifiable in the repository.
 
-**Experimentation span to date:** 2026-06-27 → 2026-07-01 (ongoing).
+**Experimentation span to date:** 2026-06-27 → 2026-07-02 (ongoing).
 *(Fill in start/end dates on Form 1A once your team's documented work
 concludes — this file will keep growing as long as the project is active.)*
 
@@ -81,6 +81,39 @@ tested end to end.
 - **Full integration pass:** the NOAA comparison, label audit, and
   feature-importance divergence results folded into the written paper; all
   figures and tables reconciled to the final, hardened statistics.
+
+## 2026-07-02 — Adversarial self-audit and statistical corrections
+A deliberate attempt to break our own results before judges or reviewers could.
+The audit found five substantive issues; all were fixed the same day.
+
+- **Exp 4 reinterpreted — the fix is the threshold *objective*, not live data.**
+  Cross-checking our own results files showed the "live-recalibrated" threshold
+  (0.035, TSS 0.835/0.661 on unseen 2015/2023) performs identically to the
+  benchmark validation's own max-TSS threshold (0.031, TSS 0.831/0.662), which
+  uses no operational data. The recovery comes from switching the threshold's
+  objective from F1 (base-rate-sensitive) to TSS (base-rate-robust). Exp 4 was
+  extended to three arms with a live-increment measurement (+0.004/−0.001,
+  CIs straddle zero); paper, abstract, board, and Figure 7 rewritten.
+- **All research-script CIs upgraded to cluster bootstrap** (whole active
+  regions resampled, matching the team scorecard's standard) — the previous
+  per-window resampling understated uncertainty because overlapping windows of
+  one region are correlated. Exps 1/4/5 re-run; intervals widened honestly.
+  With honest CIs, H₀ is rejected in 2014 and 2023; 2015's wide interval no
+  longer rejects on its own. Paired gain CIs added for threshold comparisons
+  (gains +0.19 [0.06, 0.63] and +0.33 [0.07, 0.62] — both exclude zero).
+- **Scorecard protocol hardened (v3):** live-trained models are no longer
+  scored on years before their training data; gap comparisons now use
+  identical year sets; and the multi-year model's benchmark cell is withheld
+  (its JSOC 2011–2012 training era overlaps the SWAN-SF test split — no
+  leakage-free benchmark test exists for it). Numbers regenerate on the next
+  team run; dashboard and RESULTS.md renderers updated to match.
+- **KS-test claims reworded to effect sizes** (median D = 0.19): p-values are
+  invalid for autocorrelated records at these sample sizes and were dropped
+  from all claims.
+- **Split-protocol documentation corrected:** the flare model's split is
+  region-disjoint chronological *without* a temporal gap (the configured
+  `gap_days` was unused and is removed); the storm model retains its real
+  5-day gap. Docs now match the code exactly.
 
 ---
 

@@ -10,12 +10,14 @@ escalating warning for X-class events. Ships with a polished web forecast page.
 > **The research result** ([PAPER.md](PAPER.md) · [abstract](ABSTRACT.md) ·
 > [reproduce it](research/README.md)): a model scoring **TSS 0.77** on the
 > SWAN-SF benchmark drops to **TSS 0.35–0.64** on live out-of-sample JSOC data
-> across three solar-cycle phases — the benchmark exceeds the upper 95% CI of
-> live skill in every period. A controlled 2×2 shows **retraining on live data
-> does not close the gap** (it is a property of the benchmark's evaluation set);
-> **recalibrating the threshold on operational data recovers most of the skill.**
-> Every benchmark number below should be read with that caveat — that is the
-> point of the paper.
+> across three solar-cycle phases — above the live point estimate everywhere,
+> above the cluster-bootstrap 95% CI in two of three periods. A controlled 2×2
+> shows **retraining on live data does not close the gap** (it is a property of
+> the benchmark's evaluation set); the recoverable loss is the **threshold's
+> objective** — re-tuning it for TSS instead of F1, using only benchmark
+> validation data, recovers most of the skill (live recalibration adds nothing
+> further). Every benchmark number below should be read with that caveat — that
+> is the point of the paper.
 
 > **Deployed models:** live SHARP (JSOC-trained **RandomForest**, benchmark TSS
 > 0.77 / honest live TSS 0.35–0.64 by period), the SWAN-SF benchmark model

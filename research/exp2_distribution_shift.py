@@ -4,6 +4,11 @@
     year (Feb 2015), two-sample KS-tested per feature.
 (B) Messiness: non-finite (missing/bad) rate per feature in raw JSOC — the mess
     the SWAN-SF benchmark removes via KNN imputation.
+
+Inference note: the reported statistic is the EFFECT SIZE D. The 12-minute-cadence
+records are strongly autocorrelated (violating the KS test's independence
+assumption) and n is in the tens of thousands, so p-values are anti-conservative
+and uninformative here; they are recorded in the JSON for completeness only.
 """
 import json
 import os

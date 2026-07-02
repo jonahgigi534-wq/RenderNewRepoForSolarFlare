@@ -7,12 +7,13 @@ figures in `figures/` (committed). Raw fetched datasets cache to
 
 | Script | Paper section | What it does |
 |---|---|---|
-| `exp1_multiperiod_rescore.py` | §5, Fig 1 | Scores the SWAN-SF-trained model on live JSOC 2014 / 2015 / 2023 with bootstrap 95% CIs |
+| `exp1_multiperiod_rescore.py` | §5, Fig 1 | Scores the SWAN-SF-trained model on live JSOC 2014 / 2015 / 2023 with cluster-bootstrap 95% CIs (whole active regions resampled) |
 | `../solarflare/scorecard.py` | §8, Fig 2 | The 2×2: benchmark- vs live-trained × benchmark vs operational test (`python -m solarflare.scorecard`) |
-| `exp2_distribution_shift.py` | §9, Fig 3 | KS-tests all 17 SHARP features, benchmark era (2011) vs operational (2015) + missing-data rates |
-| `exp4_recalibration.py` | §8 (fix) | Freezes a threshold chosen on live 2014, tests transfer to 2015/2023 — the validated recalibration fix |
+| `exp2_distribution_shift.py` | §9, Fig 3 | KS effect sizes (D) for all 17 SHARP features, benchmark era (2011) vs operational (2015) + missing-data rates |
+| `exp4_recalibration.py` | §8 (fix) | Three frozen thresholds (val-F1 default, benchmark-val TSS, live-recalibrated) tested on unseen 2015/2023 with paired gain CIs — shows the fix is the TSS objective, not live data |
+| `exp5_second_model.py` | §5 | Trains LightGBM under the identical protocol; the benchmark-vs-live gap replicates on a second architecture |
 | `physics_interpretation.py` | §10, Figs 5–6 | RandomForest feature importance per SHARP parameter + PCA of the feature space |
-| `make_figures.py` | all figures | Regenerates figures/fig1–6 from `results/*.json` |
+| `make_figures.py` | all figures | Regenerates figures/fig1–7 from `results/*.json` |
 
 Run from the repo root (needs `requirements.txt` + the LFS models pulled):
 
