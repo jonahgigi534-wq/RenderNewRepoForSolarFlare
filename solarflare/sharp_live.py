@@ -19,6 +19,7 @@ uses 'now'.
 from __future__ import annotations
 
 import os
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -30,6 +31,16 @@ from .config import load_config
 _MODELS: dict = {}          # variant key ("" = default) -> loaded payload or None
 _CACHE: dict = {}           # (variant, at_key) -> (timestamp, result)
 _WINDOWS_CACHE: dict = {}   # at_key -> (timestamp, windows) — shared across variants
+_CACHE_CAP = 32             # the date-picker mints ?at= keys — unbounded growth OOMs
+_FETCH_LOCKS: dict = {}     # at_key -> Lock: concurrent identical requests fetch JSOC once
+_LOCKS_GUARD = threading.Lock()
+
+
+def _cache_put(cache: dict, key, val) -> None:
+    """Insert + evict oldest insertions beyond the cap (dicts keep insert order)."""
+    cache[key] = (time.time(), val)
+    while len(cache) > _CACHE_CAP:
+        del cache[next(iter(cache))]
 
 
 def variant_spec(cfg: dict, variant: str | None):
@@ -43,38 +54,49 @@ def variant_spec(cfg: dict, variant: str | None):
     return spec.get("label", variant), spec["model_path"]
 
 
+def _model_path(cfg: dict, variant: str | None) -> str | None:
+    """Absolute artifact path for a variant, or None for an unknown variant."""
+    _, path = variant_spec(cfg, variant)
+    if path is not None and not os.path.isabs(path):      # resolve against project root, not CWD
+        path = os.path.join(cfg.get("_project_root", "."), path)
+    return path
+
+
 def list_variants(cfg: dict) -> list[dict]:
     """[{key, label, trained}] for the dashboard's model selector — the default
-    deployed model first, then every configured variant that has been trained."""
-    out = [{"key": "", "label": variant_spec(cfg, None)[0],
-           "trained": load_model(cfg, None) is not None}]
+    deployed model first, then every configured variant that has been trained.
+    Existence check only: loading every variant here would defeat the
+    one-model-resident policy in load_model."""
+    def _trained(v):
+        p = _model_path(cfg, v)
+        return p is not None and os.path.exists(p)
+    out = [{"key": "", "label": variant_spec(cfg, None)[0], "trained": _trained(None)}]
     for key, spec in cfg["sharp_live"].get("variants", {}).items():
-        out.append({"key": key, "label": spec.get("label", key),
-                    "trained": load_model(cfg, key) is not None})
+        out.append({"key": key, "label": spec.get("label", key), "trained": _trained(key)})
     return out
 
 
 def load_model(cfg: dict, variant: str | None = None):
     """Load + cache the saved live SHARP pipeline for a variant ("" / None =
-    the default deployed model), or None if not trained / unknown variant."""
+    the default deployed model), or None if not trained / unknown variant.
+    Only ONE variant stays resident: the three loadable models (22+78+77 MB on
+    disk, 2-3x in RAM unpickled) would OOM a 512MB dyno if they accumulated."""
     key = variant or ""
     if key in _MODELS:
         return _MODELS[key]
-    _, path = variant_spec(cfg, variant)
-    if path is None:
-        _MODELS[key] = None
-        return None
-    if not os.path.isabs(path):                           # resolve against project root, not CWD
-        path = os.path.join(cfg.get("_project_root", "."), path)
-    if not os.path.exists(path):
+    path = _model_path(cfg, variant)
+    if path is None or not os.path.exists(path):
         _MODELS[key] = None
         return None
     try:
         import joblib
-        _MODELS[key] = joblib.load(path)
+        payload = joblib.load(path)
     except Exception:                                     # noqa: BLE001
-        _MODELS[key] = None
-    return _MODELS[key]
+        payload = None
+    for k in [k for k, v in _MODELS.items() if v is not None and k != key]:
+        del _MODELS[k]                                    # evict the previously loaded variant
+    _MODELS[key] = payload
+    return payload
 
 
 def fetch_recent_windows(cfg: dict, at_time: datetime | None = None):
@@ -112,16 +134,27 @@ def fetch_recent_windows(cfg: dict, at_time: datetime | None = None):
 
 def _cached_windows(cfg: dict, at_time: datetime | None, at_key: str, use_cache: bool):
     """JSOC windows shared across variants — comparing two live models should
-    not double the JSOC hits, since both consume the identical recent data."""
+    not double the JSOC hits, since both consume the identical recent data.
+    A per-key lock serialises concurrent identical requests: a JSOC fetch takes
+    minutes, and without the lock every concurrent request fired its own."""
     ttl = float(cfg["sharp_live"].get("cache_minutes", 15)) * 60
     if use_cache:
         hit = _WINDOWS_CACHE.get(at_key)
         if hit and (time.time() - hit[0]) < ttl:
             return hit[1]
-    windows = fetch_recent_windows(cfg, at_time)
-    if use_cache:
-        _WINDOWS_CACHE[at_key] = (time.time(), windows)
-    return windows
+    with _LOCKS_GUARD:
+        lock = _FETCH_LOCKS.setdefault(at_key, threading.Lock())
+        for k in [k for k in _FETCH_LOCKS if k != at_key][:max(0, len(_FETCH_LOCKS) - _CACHE_CAP)]:
+            del _FETCH_LOCKS[k]
+    with lock:
+        if use_cache:                       # re-check: another thread may have fetched while we waited
+            hit = _WINDOWS_CACHE.get(at_key)
+            if hit and (time.time() - hit[0]) < ttl:
+                return hit[1]
+        windows = fetch_recent_windows(cfg, at_time)
+        if use_cache:
+            _cache_put(_WINDOWS_CACHE, at_key, windows)
+        return windows
 
 
 def predict_live(cfg: dict | None = None, at_time: datetime | None = None,
@@ -131,7 +164,10 @@ def predict_live(cfg: dict | None = None, at_time: datetime | None = None,
     deployable model from config sharp_live.variants (default: the deployed
     model). Never raises."""
     cfg = cfg or load_config()
-    at_key = at_time.isoformat() if at_time else "now"
+    # Round historical times to the hour: the date-picker's raw ?at= minted a
+    # fresh cache key per minute (unbounded growth, no reuse); within one hour
+    # the 12h/12-min-cadence windows barely change.
+    at_key = at_time.replace(minute=0, second=0, microsecond=0).isoformat() if at_time else "now"
     cache_key = (variant or "", at_key)
     ttl = float(cfg["sharp_live"].get("cache_minutes", 15)) * 60
     if use_cache:
@@ -140,7 +176,7 @@ def predict_live(cfg: dict | None = None, at_time: datetime | None = None,
             return hit[1]
     res = _predict_live_impl(cfg, at_time, at_key, variant, use_cache)
     if use_cache:
-        _CACHE[cache_key] = (time.time(), res)
+        _cache_put(_CACHE, cache_key, res)
     return res
 
 

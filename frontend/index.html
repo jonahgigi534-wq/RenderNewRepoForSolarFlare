@@ -1310,7 +1310,16 @@ async function fireDemoAlert(){
   if(btn) btn.disabled=true;
   if(out) out.textContent='firing…';
   try{
-    const r=await fetch(API_BASE+'/api/alerts/demo',{method:'POST'});
+    const hdrs={}; const saved=localStorage.getItem('demoToken'); if(saved) hdrs['X-Demo-Token']=saved;
+    let r=await fetch(API_BASE+'/api/alerts/demo',{method:'POST',headers:hdrs});
+    if(r.status===403){ // this deploy requires the operator's demo token — ask once, remember it
+      const t=prompt('This deploy protects the demo alert. Enter the demo-alert token:');
+      if(!t){ if(out) out.textContent='demo alert cancelled'; if(btn) btn.disabled=false; return; }
+      localStorage.setItem('demoToken',t);
+      r=await fetch(API_BASE+'/api/alerts/demo',{method:'POST',headers:{'X-Demo-Token':t}});
+      if(r.status===403){ localStorage.removeItem('demoToken');
+        if(out) out.textContent='demo alert refused: wrong token'; if(btn) btn.disabled=false; return; }
+    }
     const j=await r.json(); const ch=j.channels||{};
     const sent=[];
     if(ch.log) sent.push('log');

@@ -14,7 +14,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 
@@ -179,9 +179,19 @@ def alerts_endpoint():
 
 
 @app.post("/api/alerts/demo")
-def alerts_demo_endpoint():
+def alerts_demo_endpoint(x_demo_token: str = Header("")):
     """Fire one clearly-labelled DEMO alert through the real channels (log +
-    webhook + email; dry-run safe). Proves the alert pipeline live."""
+    webhook + email; dry-run safe). Proves the alert pipeline live.
+
+    Abuse guard for public deploys: when $DEMO_ALERT_TOKEN is set, the
+    X-Demo-Token header must match (the dashboard prompts for it once).
+    Additionally, alerts.demo_alert refuses to send real email when SMTP is
+    live but no token is configured."""
+    import secrets
+    tok = os.environ.get("DEMO_ALERT_TOKEN", "")
+    if tok and not secrets.compare_digest(x_demo_token, tok):
+        return JSONResponse({"error": "X-Demo-Token header required on this deploy"},
+                            status_code=403)
     return JSONResponse(alerts.demo_alert(cfg))
 
 

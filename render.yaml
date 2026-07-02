@@ -5,9 +5,16 @@
 # file and configures everything. The trained models ship via Git LFS (see
 # .gitattributes); Render fetches LFS objects automatically at build.
 #
-# MEMORY NOTE: loading the SWAN-SF (76MB) + JSOC (39MB) models together can exceed
-# the 512MB free tier and OOM. If the service restarts under load, bump `plan` to
-# `starter` (more RAM). Storm model is tiny.
+# MEMORY NOTE: three live variants now exist (22+78+77 MB on disk, 2-3x in RAM);
+# sharp_live keeps only ONE loaded at a time (LRU eviction), which keeps the
+# 512MB free tier viable. If the service still restarts under load, bump `plan`
+# to `starter` (more RAM). Storm model is tiny.
+#
+# PROSPECTIVE RECORD: this deploy has NO persistent disk and the free tier
+# sleeps when idle — notify.db + prediction_history.csv reset on every deploy
+# and the notifier loop pauses while asleep. The CANONICAL prospective forecast
+# record accumulates on the local always-on machine and is committed to the
+# repo; treat this deploy as a demo mirror, not the record of evidence.
 services:
   - type: web
     name: helios-solar-flare
@@ -17,7 +24,11 @@ services:
     buildCommand: pip install -r requirements-server.txt
     startCommand: uvicorn api.server:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
-    autoDeploy: true          # redeploy automatically on every push to main
+    # Manual deploys only ("Deploy latest commit" in the Render dashboard, per
+    # milestone). Auto-deploy on every push re-fetched ~170MB of Git-LFS models
+    # each time — the free LFS bandwidth quota is 1GB/MONTH — and wiped the
+    # ephemeral disk (see PROSPECTIVE RECORD above).
+    autoDeploy: false
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"

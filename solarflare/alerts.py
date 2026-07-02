@@ -2,8 +2,11 @@
 
 NO hardcoded secrets: the webhook URL comes from `alerts.webhook_url` in config OR
 the `ALERT_WEBHOOK_URL` environment variable (env wins). If neither is set, only the
-log channel fires. Email is intentionally not implemented (so no credentials live in
-the repo). Safe to call on every forecast refresh — never raises to the caller.
+log channel fires. `demo_alert` also exercises email via solarflare.notify — dry-run
+(logged to the outbox, not sent) unless $SMTP_PASSWORD is set, and real sends
+additionally require $DEMO_ALERT_TOKEN so a public deploy's demo button can't be
+used to spam the recipients. Safe to call on every forecast refresh — never raises
+to the caller.
 
 Conditions (config-driven thresholds): NOAA R/S/G scale levels and the modelled
 24 h storm probability. A real deployment would also de-duplicate repeats; here each
@@ -95,10 +98,17 @@ def demo_alert(cfg: dict | None = None) -> dict:
     channels = _emit(cfg, [al])
     try:
         from . import notify
-        channels["email"] = notify.send_email(
-            cfg, "[HELIOS DEMO] Space-weather alert — demonstration",
-            al["message"] + "\n\nSent by the Helios demo-alert button to show the "
-            "real alert pipeline (log + webhook + email) working end to end.")
+        if os.environ.get("SMTP_PASSWORD") and not os.environ.get("DEMO_ALERT_TOKEN"):
+            # Public-abuse guard: live SMTP + an unauthenticated endpoint would
+            # let anyone on the internet email the recipients. Real sends
+            # require the operator to configure DEMO_ALERT_TOKEN (the endpoint
+            # then enforces the matching header).
+            channels["email"] = "skipped (live SMTP requires DEMO_ALERT_TOKEN)"
+        else:
+            channels["email"] = notify.send_email(
+                cfg, "[HELIOS DEMO] Space-weather alert — demonstration",
+                al["message"] + "\n\nSent by the Helios demo-alert button to show the "
+                "real alert pipeline (log + webhook + email) working end to end.")
     except Exception as exc:                              # noqa: BLE001 (never raise)
         log.warning("demo alert email failed: %s", type(exc).__name__)
         channels["email"] = "failed"
