@@ -13,8 +13,9 @@ solar-flare forecasts, and does training on live satellite data close the gap?**
 - **H₁ (primary):** A flare-forecasting model scored on live, out-of-sample
   JSOC/SDO data will show **significantly lower TSS** than on the SWAN-SF
   benchmark, because of distribution shift between the curated benchmark and raw
-  operational data. **Recalibrating / retraining on live data recovers a
-  measurable fraction of the lost skill.**
+  operational data. **Re-selecting the decision threshold (for the
+  base-rate-robust TSS objective) recovers a measurable fraction of the lost
+  skill.**
 - **H₀ (null):** Benchmark TSS and live operational TSS are statistically
   equivalent — no significant benchmark inflation.
 
@@ -43,7 +44,9 @@ trusted operationally, the honesty of their reported skill is a safety question.
 4. **Robustness** — repeat across solar-cycle phases; bootstrap 95% CIs on TSS.
 
 ## Controls & rigor
-- Leakage-free chronological splits with multi-day gaps (never shuffled).
+- Leakage-free **region-disjoint** chronological splits — a whole active region
+  lives in exactly one of train/val/test (never shuffled). The storm model
+  additionally enforces a 5-day temporal gap between splits.
 - TSS/HSS, not accuracy (accuracy is degenerate at low base rate).
 - Out-of-sample by design (test periods years outside training).
 - Bootstrap confidence intervals; the gap must exceed CIs to reject H₀.
@@ -70,9 +73,10 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
 ## Status / to-do
 - [x] Preliminary gap measured (2014 Q1).
 - [x] **Exp 1: multi-period live re-scores (2014 / 2015 / 2023) — DONE.** Benchmark
-      TSS 0.77 vs live default TSS 0.35 / 0.64 / 0.33; H₀ rejected in all three
-      periods (benchmark above upper 95% CI). Gap is condition-dependent.
-- [x] Bootstrap 95% CIs on TSS (part of Exp 4) — DONE.
+      TSS 0.77 vs live default TSS 0.35 / 0.64 / 0.33; benchmark above the live
+      point estimate in all three periods and above the cluster-bootstrap 95% CI
+      in 2014/2023. Gap is condition-dependent.
+- [x] Cluster-bootstrap 95% CIs on TSS (whole active regions resampled) — DONE.
 - [x] Accuracy-illusion demonstration (zero-skill model vs accuracy) — DONE (paper §7).
 - [x] **Exp 2: feature-distribution KS-tests — DONE.** Raw JSOC 2011 vs 2015: all
       17/17 SHARP features significantly shifted (median KS D 0.19); operational
@@ -84,10 +88,12 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
       close the gap (H₁ᵦ refuted) → gap is an evaluation-set property. Reproducible
       via `python -m solarflare.scorecard`. (TODO: choose peak-TSS threshold on a
       validation split, not the test set, to remove mild optimism.)
-- [x] **Exp 4 (the validated fix) — DONE.** Threshold recalibrated on live 2014,
-      frozen, tested on unseen 2015/2023: TSS 0.64→0.835 and 0.33→0.66, CIs
-      non-overlapping in both. Recalibration is a validated deployable correction
-      (`research/exp4_recalibration.py`, Fig 7, paper §8).
+- [x] **Exp 4 (the validated fix, decomposed) — DONE.** Three frozen thresholds
+      tested on unseen 2015/2023: default (val-F1) 0.64→0.835 and 0.33→0.66
+      (paired gains +0.19 [0.06,0.63] and +0.33 [0.07,0.62]). The benchmark's own
+      val-TSS threshold performs identically to the live-recalibrated one (live
+      increment ≈ 0) — the fix is the threshold OBJECTIVE (TSS vs F1), not live
+      data (`research/exp4_recalibration.py`, Fig 7, paper §8).
 - [ ] More windows per phase to tighten CIs further (optional).
 - [x] **Second-architecture replication (LightGBM) — DONE.** Identical protocol on
       the rebuilt SWAN-SF p1 set (73,492 samples, exact match to the deployed

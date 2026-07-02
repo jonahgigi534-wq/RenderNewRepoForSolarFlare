@@ -3,8 +3,10 @@ of the SWAN-SF-trained model.
 
 Scores the deployed model on three out-of-sample periods spanning different
 solar-cycle phases, via the same JSOC+HEK -> build_matrix transform the live
-system uses. Reports TSS/recall/precision at each operating point with bootstrap
-95% CIs. All periods postdate the training span (2010-05 .. 2012-03).
+system uses. Reports TSS/recall/precision at each operating point with
+cluster-bootstrap 95% CIs (whole active regions resampled — windows of one
+region overlap in time, so i.i.d. row resampling would be dishonestly narrow).
+All periods postdate the training span (2010-05 .. 2012-03).
 """
 import json
 import os
@@ -38,7 +40,7 @@ results = {"training_span": payload.get("data_span"),
 for name, t0, t1 in PERIODS:
     print(f"\n===== {name}: {t0.date()} .. {t1.date()} =====", flush=True)
     d = load_or_build(name, t0, t1, cfg)
-    X3d, y = d["X3d"], np.asarray(d["y"])
+    X3d, y, groups = d["X3d"], np.asarray(d["y"]), d["groups"]
     n, pos = len(y), int(y.sum())
     print(f"  windows={n} positives={pos} base_rate={(pos/n if n else 0):.4f}", flush=True)
     if n == 0 or pos == 0:
@@ -50,7 +52,7 @@ for name, t0, t1 in PERIODS:
     for op_name, op in ops.items():
         thr = float(op["threshold"])
         r = evaluate.full_report(y, (proba >= thr).astype(int))
-        lo, hi = bootstrap_tss_ci(y, proba, thr)
+        lo, hi = bootstrap_tss_ci(y, proba, thr, groups)
         rec["by_operating_point"][op_name] = {
             "threshold": round(thr, 3),
             "tss": round(r["tss"], 3), "tss_ci95": [lo, hi],

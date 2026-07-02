@@ -82,6 +82,9 @@ def write_results_md(cfg: dict) -> str:
         for m in sc.get("models", []):
             add(_fmt_row(m))
         add("")
+        for m in sc.get("models", []):
+            if m.get("benchmark_note"):
+                add(f"- *{m['name']}*: {m['benchmark_note']}.")
         f = sc.get("findings", {})
         add(f"- Benchmarks overstate operational skill: **{f.get('benchmarks_overstate')}** "
             f"— gap {_num(f.get('overstatement_gap'))}{_ci(f.get('overstatement_gap_ci'))}, "
@@ -92,7 +95,14 @@ def write_results_md(cfg: dict) -> str:
             f"(benchmark-gap minus live-gap CI {f.get('live_minus_benchmark_gap_ci')} — "
             "negative means live training WIDENED it).")
         md = f.get("more_live_data")
-        if md:
+        if md and "multi_year_operational_tss" in md:
+            add(f"- MORE live data ({'+'.join(map(str, md.get('years_compared', [])))} tested): "
+                f"single-year operational TSS {_num(md.get('single_year_operational_tss'), '.3f')} "
+                f"vs multi-year {_num(md.get('multi_year_operational_tss'), '.3f')} — improves it: "
+                f"**{md.get('more_data_improves_operational_skill')}** "
+                f"(difference CI {md.get('multi_minus_single_operational_ci')}). "
+                f"{md.get('note', '')}")
+        elif md:                                      # legacy artifact shape
             add(f"- MORE live data ({'+'.join(map(str, md.get('years_compared', [])))} tested): "
                 f"single-year gap {_num(md.get('single_year_gap_same_years'))} vs multi-year gap "
                 f"{_num(md.get('multi_year_gap'))} — closes it: **{md.get('more_data_closes_gap')}** "
@@ -108,14 +118,19 @@ def write_results_md(cfg: dict) -> str:
                 f"**{bt.get('recovers_significantly')}**.")
         cf = rc.get("combined_fix")
         if cf:
-            closed = ("**gap closed** (point estimate ≤ 0)" if cf.get("gap_closed") else
-                      "remaining gap statistically indistinguishable from zero (CI spans 0 — "
-                      "absence of evidence, not proof of closure)" if cf.get("gap_not_significant")
-                      else f"gap remains {_num(cf.get('gap_after'))}")
-            add(f"- COMBINED FIX ({cf.get('description')}): operational TSS "
-                f"{_num(cf.get('operational_tss'), '.3f')} (CI {cf.get('operational_ci')}); gap "
-                f"{_num(cf.get('gap_before_same_years'))} → {_num(cf.get('gap_after'))}"
-                f"{_ci(cf.get('gap_after_ci'))} on the same eval years — {closed}.")
+            base = (f"- COMBINED FIX ({cf.get('description')}): operational TSS "
+                    f"{_num(cf.get('operational_tss'), '.3f')} (CI {cf.get('operational_ci')}); "
+                    f"recovery {_num(cf.get('recovery'))}{_ci(cf.get('recovery_ci'))}, "
+                    f"significant: **{cf.get('recovers_significantly')}**")
+            if cf.get("gap_after") is None:
+                add(base + f". {cf.get('note') or 'No leakage-free benchmark cell — recovery and operational skill only.'}")
+            else:
+                closed = ("**gap closed** (point estimate ≤ 0)" if cf.get("gap_closed") else
+                          "remaining gap statistically indistinguishable from zero (CI spans 0 — "
+                          "absence of evidence, not proof of closure)" if cf.get("gap_not_significant")
+                          else f"gap remains {_num(cf.get('gap_after'))}")
+                add(base + f"; gap {_num(cf.get('gap_before_same_years'))} → {_num(cf.get('gap_after'))}"
+                    f"{_ci(cf.get('gap_after_ci'))} on the same eval years — {closed}.")
         add("")
         add("Self-corrected deployment per model (recalibrate once, freeze, apply forward):")
         add("")

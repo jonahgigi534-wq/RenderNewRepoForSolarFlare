@@ -83,7 +83,12 @@ def build_candidates(cfg: dict) -> dict:
 def time_group_split(groups, end_times, frac: dict):
     """Region-disjoint chronological split: order regions by their median time and
     fill train -> val -> test by cumulative sample count. No region spans a boundary
-    (kills the main leakage path), and splits are ordered in time."""
+    (kills the main leakage path), and splits are ordered in time.
+
+    Honesty note: region-disjointness is the leakage control here — there is NO
+    temporal gap between splits, and a long-lived region near a boundary can
+    overlap the next split in calendar time (its windows still live in only one
+    split)."""
     groups = np.asarray(groups)
     uniq = np.unique(groups)
     med = {}

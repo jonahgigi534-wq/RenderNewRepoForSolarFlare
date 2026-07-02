@@ -1182,14 +1182,16 @@ async function loadScorecard(){
       '<br>benchmark test: '+escapeHtml(ts.benchmark||'')+'<br>operational test: '+escapeHtml(ts.operational||'')+'</span>';
     document.getElementById('scorecard-body').innerHTML=(j.models||[]).map(m=>
       '<tr><td>'+escapeHtml(m.name)+' <span class="muted">· '+escapeHtml(m.detail)+'</span></td>'+
-      '<td class="num">'+Number(m.benchmark_tss).toFixed(2)+ciStr(m.benchmark_ci)+'</td>'+
+      '<td class="num">'+(m.benchmark_tss!=null?Number(m.benchmark_tss).toFixed(2)+ciStr(m.benchmark_ci)
+        :'<span class="muted" title="'+escapeHtml(m.benchmark_note||'no leakage-free benchmark test for this model')+'">n/a</span>')+'</td>'+
       '<td class="num"><b>'+Number(m.operational_tss).toFixed(2)+'</b>'+ciStr(m.operational_ci)+'</td>'+
-      '<td class="num" style="color:var(--x-class)">▼ '+Math.abs(Number(m.gap)).toFixed(2)+ciStr(m.gap_ci)+'</td></tr>'
+      '<td class="num" style="color:var(--x-class)">'+(m.gap!=null?'▼ '+Math.abs(Number(m.gap)).toFixed(2)+ciStr(m.gap_ci)
+        :'<span class="muted">—</span>')+'</td></tr>'
     ).join('');
     document.getElementById('scorecard-table').hidden=false;
     // Frozen-threshold view — the deployment number (threshold committed in advance).
     const fz=document.getElementById('scorecard-frozen');
-    const fzRows=(j.models||[]).filter(m=>m.frozen).map(m=>
+    const fzRows=(j.models||[]).filter(m=>m.frozen&&m.frozen.benchmark_tss!=null).map(m=>
       escapeHtml(m.name)+': '+Number(m.frozen.benchmark_tss).toFixed(2)+' → '+
       Number(m.frozen.operational_tss).toFixed(2)+' (gap '+Number(m.frozen.gap).toFixed(2)+ciStr(m.frozen.gap_ci)+')');
     if(fzRows.length){ fz.innerHTML='<b>Frozen threshold</b> <span class="muted">(committed in advance — the deployment scenario)</span>: '+fzRows.join(' · '); fz.hidden=false; }
@@ -1198,22 +1200,33 @@ async function loadScorecard(){
     const rc=document.getElementById('scorecard-recal');
     const rcRows=(j.models||[]).filter(m=>m.recalibrated).map(m=>{
       const r=m.recalibrated;
-      const before=(r.gap_before_same_years!=null)?r.gap_before_same_years:(r.gap_after+r.recovery);
-      return escapeHtml(m.name)+': gap '+Number(before).toFixed(2)+' → <b>'+
-        Number(r.gap_after).toFixed(2)+'</b>'+ciStr(r.gap_after_ci)+
-        ' <span class="muted">(recal. on '+r.calibrated_on+', TSS '+Number(r.operational_tss).toFixed(2)+
+      const prov=' <span class="muted">(recal. on '+r.calibrated_on+', TSS '+Number(r.operational_tss).toFixed(2)+
         ' on '+r.eval_years.join('/')+' — same-years comparison)</span>';
+      if(r.gap_after==null){   // no leakage-free benchmark cell — recovery only
+        return escapeHtml(m.name)+': TSS '+Number(r.before_tss_same_years).toFixed(2)+' → <b>'+
+          Number(r.operational_tss).toFixed(2)+'</b> (recovery '+Number(r.recovery).toFixed(2)+ciStr(r.recovery_ci)+')'+prov;
+      }
+      return escapeHtml(m.name)+': gap '+Number(r.gap_before_same_years).toFixed(2)+' → <b>'+
+        Number(r.gap_after).toFixed(2)+'</b>'+ciStr(r.gap_after_ci)+prov;
     });
     if(rcRows.length){
       const cf=((j.findings||{}).recalibration||{}).combined_fix;
-      const cfBadge=cf?(cf.gap_closed?' — <b>gap closed</b>'
-        :(cf.gap_not_significant?' — <span class="muted">remaining gap not statistically distinguishable from zero</span>':'')):'';
+      let cfLine='';
+      if(cf){
+        cfLine='<br><b style="color:var(--c-class)">Combined fix</b> <span class="muted">('+escapeHtml(cf.description)+')</span>: operational TSS <b>'+
+          Number(cf.operational_tss).toFixed(2)+'</b>'+ciStr(cf.operational_ci)+', recovery '+
+          Number(cf.recovery).toFixed(2)+ciStr(cf.recovery_ci)+
+          (cf.recovers_significantly?' — <b>significant</b>':'');
+        if(cf.gap_after!=null){
+          cfLine+=', gap '+Number(cf.gap_before_same_years).toFixed(2)+' → '+Number(cf.gap_after).toFixed(2)+ciStr(cf.gap_after_ci)+
+            (cf.gap_closed?' — <b>gap closed</b>'
+             :(cf.gap_not_significant?' — <span class="muted">remaining gap not statistically distinguishable from zero</span>':''));
+        } else {
+          cfLine+=' <span class="muted">(no leakage-free benchmark cell — recovery and operational skill only)</span>';
+        }
+      }
       rc.innerHTML='<b>Self-corrected deployment</b> <span class="muted">(threshold recalibrated on the first operational year — the fix, applied)</span>: '+
-        rcRows.join(' · ')+
-        (cf?('<br><b style="color:var(--c-class)">Combined fix</b> <span class="muted">('+escapeHtml(cf.description)+')</span>: operational TSS <b>'+
-          Number(cf.operational_tss).toFixed(2)+'</b>'+ciStr(cf.operational_ci)+', gap '+
-          Number(cf.gap_before_same_years!=null?cf.gap_before_same_years:cf.gap_after).toFixed(2)+' → '+
-          Number(cf.gap_after).toFixed(2)+ciStr(cf.gap_after_ci)+cfBadge):'');
+        rcRows.join(' · ')+cfLine;
       rc.hidden=false;
     }
     // Per-year chips (benchmark-trained model): does the gap hold every year?

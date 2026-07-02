@@ -384,7 +384,10 @@ sharp_live:
   train_end: "2015-01-01"
   candidates: [logistic, random_forest, extra_trees, hist_gradient_boosting]
   selection_metric: tss
-  split: {train: 0.65, val: 0.15, test: 0.20, gap_days: 5}   # leakage-free chronological
+  # Region-disjoint chronological split: a whole active region lives in exactly
+  # one of train/val/test (see sharptrain.time_group_split). Region-disjointness
+  # is the leakage control; no temporal gap is enforced between splits.
+  split: {train: 0.65, val: 0.15, test: 0.20}
   high_precision_min_recall: 0.25
   random_state: 42
   model_path: models/flare_sharp_live_model.joblib

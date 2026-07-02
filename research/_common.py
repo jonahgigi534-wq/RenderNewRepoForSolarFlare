@@ -38,13 +38,42 @@ def tss_from(y, pred) -> float:
     return recall - far
 
 
-def bootstrap_tss_ci(y, proba, thr, n=1000, seed=42):
-    """Percentile-bootstrap 95% CI on TSS at a fixed threshold."""
+def bootstrap_tss_ci(y, proba, thr, groups, n=1000, seed=42):
+    """Cluster-bootstrap 95% CI on TSS at a fixed threshold.
+
+    Resamples whole active regions (HARPs), not individual windows: windows of
+    one region overlap in time (12 h window, 6 h stride) and are strongly
+    correlated, so i.i.d. row resampling gives dishonestly narrow intervals.
+    Same resampling unit as solarflare/scorecard.py."""
     rng = np.random.default_rng(seed)
-    y = np.asarray(y); proba = np.asarray(proba)
-    idx = np.arange(len(y)); vals = []
+    y = np.asarray(y); proba = np.asarray(proba); g = np.asarray(groups)
+    clusters = [np.where(g == u)[0] for u in np.unique(g)]
+    k = len(clusters)
+    vals = []
     for _ in range(n):
-        s = rng.choice(idx, size=len(idx), replace=True)
-        vals.append(tss_from(y[s], (proba[s] >= thr).astype(int)))
+        pick = rng.integers(0, k, k)
+        idx = np.concatenate([clusters[i] for i in pick])
+        vals.append(tss_from(y[idx], (proba[idx] >= thr).astype(int)))
+    lo, hi = np.percentile(vals, [2.5, 97.5])
+    return round(float(lo), 3), round(float(hi), 3)
+
+
+def bootstrap_paired_tss_gain_ci(y, proba, thr_a, thr_b, groups, n=1000, seed=42):
+    """Cluster-bootstrap 95% CI on the PAIRED gain TSS(thr_b) - TSS(thr_a).
+
+    Each replicate scores both thresholds on the same resampled regions, so
+    shared sampling noise cancels — the honest test of whether a threshold
+    change helps (marginal CIs of two correlated scores overstate overlap)."""
+    rng = np.random.default_rng(seed)
+    y = np.asarray(y); proba = np.asarray(proba); g = np.asarray(groups)
+    clusters = [np.where(g == u)[0] for u in np.unique(g)]
+    k = len(clusters)
+    vals = []
+    for _ in range(n):
+        pick = rng.integers(0, k, k)
+        idx = np.concatenate([clusters[i] for i in pick])
+        yb, pb = y[idx], proba[idx]
+        vals.append(tss_from(yb, (pb >= thr_b).astype(int))
+                    - tss_from(yb, (pb >= thr_a).astype(int)))
     lo, hi = np.percentile(vals, [2.5, 97.5])
     return round(float(lo), 3), round(float(hi), 3)
