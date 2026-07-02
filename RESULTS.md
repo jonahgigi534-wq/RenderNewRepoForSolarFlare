@@ -11,15 +11,16 @@ Benchmark test: held-out SWAN-SF magnetograms (14690 windows, 236 flares). Opera
 | Model | Benchmark TSS | Operational TSS (mean) | Gap (peak) | Gap (frozen threshold) |
 |---|---|---|---|---|
 | Benchmark-trained (SWAN-SF 2010-2012) | 0.906 | 0.812 | **+0.094** (95% CI +0.021..+0.273) | +0.097 (95% CI +0.024..+0.277) |
-| Live-trained (JSOC live data (2014)) | 0.914 | 0.780 | **+0.134** (95% CI +0.066..+0.314) | +0.197 (95% CI -0.004..+0.465) |
-| Live-trained (multi-year) (JSOC 2011+2012+2014) | 0.910 | 0.852 | **+0.058** (95% CI -0.020..+0.287) | +0.034 (95% CI -0.038..+0.259) |
+| Live-trained (JSOC live data (2014)) | 0.914 | 0.794 | **+0.119** (95% CI +0.042..+0.339) | +0.186 (95% CI -0.027..+0.506) |
+| Live-trained (multi-year) (JSOC 2011+2012+2014) | — | 0.847 | **—** | — |
 
+- *Live-trained (multi-year)*: no leakage-free benchmark test exists for this model: its live training years (JSOC 2011+2012+2014) cover the SWAN-SF test split's era, so the same active regions appear in training and test.
 - Benchmarks overstate operational skill: **True** — gap +0.094 (95% CI +0.021..+0.273), positive in every tested year: True.
 - With a pre-committed (deployment) threshold the benchmark-trained gap is +0.097 (95% CI +0.024..+0.277).
-- Live training closes the gap: **False** (benchmark-gap minus live-gap CI [-0.091, 0.01] — negative means live training WIDENED it).
-- MORE live data (2015+2016+2017+2023 tested): single-year gap +0.120 vs multi-year gap +0.058 — closes it: **True** (difference CI [-0.005, 0.119]).
+- Live training closes the gap: **False** (benchmark-gap minus live-gap CI [-0.095, 0.013] — negative means live training WIDENED it).
+- MORE live data (2015+2016+2017+2023 tested): single-year operational TSS 0.794 vs multi-year 0.847 — improves it: **True** (difference CI [0.011, 0.09]). operational-skill comparison on identical years; no leakage-free benchmark cell exists for the multi-year model, so gap-vs-gap is not defined for it
 - SELF-CORRECTION (threshold recalibrated on the first operational year, frozen for the later years): benchmark-trained gap +0.082 → +0.073 (95% CI +0.007..+0.294) on the SAME eval years; recovery +0.009 (95% CI -0.026..+0.141) — significant: **False**.
-- COMBINED FIX (multi-year live training + one-year threshold recalibration): operational TSS 0.826 (CI [0.535, 0.875]); gap +0.038 → +0.011 (95% CI -0.071..+0.303) on the same eval years — remaining gap statistically indistinguishable from zero (CI spans 0 — absence of evidence, not proof of closure).
+- COMBINED FIX (multi-year live training + one-year threshold recalibration): operational TSS 0.830 (CI [0.531, 0.876]); recovery +0.037 (95% CI -0.031..+0.066), significant: **False**. no leakage-free benchmark cell for this model — recovery and operational skill only
 
 Self-corrected deployment per model (recalibrate once, freeze, apply forward):
 
@@ -27,7 +28,7 @@ Self-corrected deployment per model (recalibrate once, freeze, apply forward):
 |---|---|---|---|---|---|
 | Benchmark-trained | 2013 | 2015/2016/2017/2023 | 0.795 | **0.803** | +0.009 (95% CI -0.026..+0.141) |
 | Live-trained | 2015 | 2016/2017/2023 | 0.648 | **0.757** | +0.109 (95% CI -0.012..+0.422) |
-| Live-trained (multi-year) | 2015 | 2016/2017/2023 | 0.799 | **0.826** | +0.027 (95% CI +0.001..+0.052) |
+| Live-trained (multi-year) | 2015 | 2016/2017/2023 | 0.793 | **0.830** | +0.037 (95% CI -0.031..+0.066) |
 
 Per-year peak TSS (benchmark-trained model):
 
