@@ -75,6 +75,14 @@ and "cannot actually be deployed" motivated the whole research question.
 | **Evaluation** | held-out test TSS ≈ 0.47–0.51; base rate ~9% |
 | **Generalisation check** | `storm_scorecard.json` — the same benchmark-vs-operational gap appears here too |
 
+**Deployed operating point: `high_recall`** (max-TSS on validation, threshold
+~0.588) — not `balanced`/F1. The storm model shows the same benchmark→operational
+gap as the flare model (`storm_scorecard.json`), so it deploys on the
+TSS-objective point the project's finding endorses, matching the validation-TSS
+"frozen" threshold that scorecard already reports as the deployment number.
+Trade-off: recall-heavy (more storm warnings, lower precision) — the deliberate
+choice when misses cost more than false alarms.
+
 **Separate feature space** from the flare models (L1 solar wind vs solar
 magnetograms) — never mixed, by design.
 

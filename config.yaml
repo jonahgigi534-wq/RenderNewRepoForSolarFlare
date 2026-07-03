@@ -111,7 +111,11 @@ features:
 live:
   cache_ttl_minutes: 30
   request_timeout_s: 20
-  operating_point: balanced    # high_recall | balanced | high_precision
+  # high_recall (= max-TSS on validation), NOT balanced (max-F1): the project's
+  # own finding is that the F1 point collapses operationally as the flare base
+  # rate falls (live TSS ~0.35 at solar max), while the TSS-objective point
+  # transfers. The ensemble SHARP track deploys on the point the paper endorses.
+  operating_point: high_recall   # high_recall | balanced | high_precision
   xray_sources:
     - https://services.swpc.noaa.gov/json/goes/primary/xrays-7-day.json
     - https://services.swpc.noaa.gov/json/goes/secondary/xrays-7-day.json
@@ -206,7 +210,11 @@ storm:
   candidates: [hist_gradient_boosting, random_forest, extra_trees, logistic]
   selection_metric: tss
   high_precision_min_recall: 0.30
-  operating_point: balanced
+  # high_recall = max-TSS on validation (threshold ~0.588), matching the
+  # validation-TSS-optimal "frozen" threshold storm_scorecard.json already reports
+  # as the deployment point. The storm model shows the same benchmark->operational
+  # gap as the flare model, so it deploys on the TSS-objective point too, not F1.
+  operating_point: high_recall
   summary_stats: [last, mean, std, min, max, slope, delta]
   cache_hours: 6                # cache the OMNI training pull
   # Live inference feeds (real-time L1 + NOAA's own Kp forecast for corroboration).

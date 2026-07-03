@@ -20,7 +20,7 @@
     }
   ],
   "threshold": 0.104,
-  "default_operating_point": "balanced",
+  "default_operating_point": "operational",
   "operating_points": {
     "high_recall": {
       "threshold": 0.031,
