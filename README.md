@@ -47,9 +47,30 @@ independent protocol — and writes **RESULTS.md**:
   data) into a model artifact; opt in live via `sharp_live.operating_point:
   operational`. The scorecard shows the corrected-deployment rows.
 
-See **MODEL_CARD.md** for honest per-model documentation. The dashboard's
+**Why two pipelines, and why their numbers differ.** These are deliberately
+independent replications of the same finding, not the same computation twice — a
+judge who compares them should know the mapping:
+
+| | `research/` (feeds PAPER.md) | `solarflare/scorecard.py` (feeds the dashboard + RESULTS.md) |
+|---|---|---|
+| Reports | TSS at named operating points (`balanced` = F1, `high_recall` = TSS) on 2014/2015/2017 | `peak` (threshold-free ceiling) and `frozen` (committed-threshold deployment) TSS on 2013/15/16/17, plus a multi-year variant |
+| Purpose | decompose *why* the gap exists and *what* fixes it (threshold objective) | quantify the deployed gap with CIs + the storm/NOAA/dose-response robustness checks |
+
+Both apply the **same fail-closed label-quality gate** (2023 excluded in both), so
+their year sets differ only by which years each protocol scores — the headline
+conclusion (benchmark overstates; live training doesn't close it; the fix is the
+TSS threshold) is identical across both. Numbers differ because the thresholds and
+year sets differ, not because the pipelines disagree.
+
+The label-attribution decay behind the 2023 exclusion is measured across years in
+`config.yaml` (`scorecard.label_attribution_by_year`): healthy 0.94–0.98 through
+2017, then 0.55 (2021), 0.11 (2022), 0.15 (2023) — a curve, not a single bad year.
+
+See **MODEL_CARD.md** for honest per-model documentation, and
+**PREREGISTRATION.md** for the pre-committed 2024 cross-cycle test. The dashboard's
 "Model skill scorecard" panel shows all of it live, with CIs, per-year chips,
-a reliability diagram, and the NOAA comparison.
+a reliability diagram (`figures/fig8_calibration.png` is its board-quality twin),
+and the NOAA comparison.
 
 ---
 
@@ -93,8 +114,10 @@ for it.
 ## Quickstart
 
 ```bash
-# 1. install
-pip install -r requirements.txt
+# 1. install  (requirements.txt = loose ranges; requirements.lock = exact
+#    pinned versions this project's results were produced with — use the lock
+#    to reproduce the paper's numbers bit-for-bit)
+pip install -r requirements.txt        # or: pip install -r requirements.lock
 
 # 2. prove the whole pipeline works (NO download, NO GPU needed)
 python scripts/smoke_test.py

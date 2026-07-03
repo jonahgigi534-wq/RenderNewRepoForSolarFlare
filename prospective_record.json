@@ -1,0 +1,26 @@
+{
+  "available": true,
+  "n_days": 5,
+  "events": 4,
+  "base_rate": 0.8,
+  "brier": 0.121,
+  "brier_ci95": [
+    0.0331,
+    0.2224
+  ],
+  "brier_climatology": 0.16,
+  "brier_skill_vs_climatology": 0.244,
+  "tss_at_alert_threshold": 0.75,
+  "tss_ci95": [
+    0.25,
+    1.0
+  ],
+  "alert_threshold_p": 0.5,
+  "confusion": {
+    "tp": 3,
+    "fp": 0,
+    "fn": 1,
+    "tn": 1
+  },
+  "note": "prospective \u2014 every forecast issued before its outcome window; CIs are i.i.d. bootstrap (daily forecasts are not region-correlated). TSS/CIs firm up as both flare and no-flare days accumulate."
+}

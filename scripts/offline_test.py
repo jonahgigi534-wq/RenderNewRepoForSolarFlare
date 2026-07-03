@@ -111,6 +111,19 @@ st = _load("storm_scorecard.json")
 if st is not None:
     check("storm scorecard carries peak+frozen", "peak" in st and "frozen" in st)
 
+# prospective summary: pure-math self-check + committed-artifact contract
+from prospective_summary import summarize, _materialized       # noqa: E402
+_ps = summarize([
+    {"kind": "daily", "status": "verified", "p_M_24h": "0.9", "actual_peak_class": "M1.0"},
+    {"kind": "daily", "status": "verified", "p_M_24h": "0.1", "actual_peak_class": "C2.0"},
+])
+check("prospective Brier known answer", abs(_ps["brier"] - 0.01) < 1e-9, str(_ps["brier"]))
+check("prospective materialized maps M/X to 1", _materialized("X1.1") == 1 and _materialized("C9.5") == 0)
+pr = _load("prospective_record.json")
+if pr is not None and pr.get("available"):
+    check("prospective_record carries n_days + brier",
+          isinstance(pr.get("n_days"), int) and pr.get("brier") is not None)
+
 print()
 if failures:
     print(f"OFFLINE CI FAILED: {failures}")

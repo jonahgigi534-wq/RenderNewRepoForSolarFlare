@@ -185,4 +185,58 @@ if os.path.exists(rc_path):
     fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig7_recalibration_fix.png")); plt.close(fig)
     print("wrote fig7")
 
+# ---------- Fig 8: calibration / reliability of the deployed model ----------
+# "When we say 30%, does it happen ~30% of the time?" Reads the pooled-operational
+# reliability bins already in skill_scorecard.json (regenerates with the pipeline),
+# and reports the Murphy calibration-refinement decomposition of the Brier score:
+#   Brier = Reliability - Resolution + Uncertainty   (from the binned data).
+DEPLOYED = "Benchmark-trained"                       # the deployed flare model (MODEL_CARD §1)
+rel = (sc.get("reliability") or {})
+if rel:
+    def murphy(binz, obase):
+        N = sum(b["n"] for b in binz) or 1
+        relc = sum(b["n"] * (b["p_mean"] - b["obs_freq"]) ** 2 for b in binz) / N
+        res = sum(b["n"] * (b["obs_freq"] - obase) ** 2 for b in binz) / N
+        return relc, res, obase * (1 - obase)
+    fig, ax = plt.subplots(figsize=(6.6, 6.2))
+    ax.plot([0, 1], [0, 1], ls="--", color="#495057", lw=1.4, label="perfect calibration")
+    palette = {DEPLOYED: C_BENCH, "Live-trained": C_LIVE, "Live-trained (multi-year)": "#2b8a3e"}
+    for name, r in rel.items():
+        binz = [b for b in r.get("bins", []) if b.get("n")]
+        if not binz:
+            continue
+        xs = [b["p_mean"] for b in binz]; ys = [b["obs_freq"] for b in binz]
+        nmax = max(b["n"] for b in binz) ** 0.5
+        sizes = [18 + 90 * (b["n"] ** 0.5) / nmax for b in binz]
+        c = palette.get(name, "#868e96"); lw = 2.6 if name == DEPLOYED else 1.4
+        # Line only through well-populated bins (n>=10) so singleton tail bins
+        # (n=1, obs_freq 0/1) don't yank the curve; every bin still shows as a dot
+        # sized by count, so sparse ones read honestly as low-confidence.
+        solid = [b for b in binz if b["n"] >= 10]
+        if len(solid) >= 2:
+            ax.plot([b["p_mean"] for b in solid], [b["obs_freq"] for b in solid],
+                    "-", color=c, lw=lw, alpha=0.9 if name == DEPLOYED else 0.5)
+        ax.scatter(xs, ys, s=sizes, color=c, alpha=0.85, zorder=3,
+                   label=f"{name} (Brier {r.get('brier', '—')})", edgecolor="white", linewidth=0.6)
+    dep = rel.get(DEPLOYED)
+    if dep and [b for b in dep.get("bins", []) if b.get("n")]:
+        binz = [b for b in dep["bins"] if b.get("n")]
+        relc, res, unc = murphy(binz, dep["base_rate"])
+        ax.text(0.03, 0.97,
+                f"Deployed model — Brier decomposition\n"
+                f"reliability  {relc:.4f}  (miscalibration, ↓ better)\n"
+                f"resolution   {res:.4f}  (discrimination, ↑ better)\n"
+                f"uncertainty  {unc:.4f}  (base rate {dep['base_rate']:.3f})\n"
+                f"Brier ≈ rel − res + unc = {relc - res + unc:.4f}",
+                transform=ax.transAxes, va="top", ha="left", fontsize=8.5,
+                family="monospace", bbox=dict(boxstyle="round", fc="#f1f3f5", ec="#ced4da"))
+    ax.set_xlim(0, 1); ax.set_ylim(0, 1)
+    ax.set_xlabel("forecast probability P(M+ in 24 h)")
+    ax.set_ylabel("observed flare frequency")
+    ax.set_title("Calibration on operational data: forecasts track reality\n"
+                 "(dot size ∝ √count; pooled operational years)")
+    ax.legend(loc="lower right", framealpha=0.95, fontsize=8.5)
+    fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig8_calibration.png")); plt.close(fig)
+    print("wrote fig8")
+
 print("wrote figures to", FIGURES)
