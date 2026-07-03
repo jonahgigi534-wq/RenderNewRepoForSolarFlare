@@ -7,6 +7,12 @@
     "precision": 0.585,
     "hss": 0.409
   },
+  "excluded_periods": {
+    "2023_rising_max": {
+      "year": 2023,
+      "reason": "label-attribution rate 0.15 below the 0.8 gate (HEK/SWPC AR attribution incomplete; labels under-count positives, biasing TSS down)"
+    }
+  },
   "periods": {
     "2014_solar_max": {
       "n": 3503,
@@ -80,39 +86,39 @@
         }
       }
     },
-    "2023_rising_max": {
-      "n": 4075,
-      "positives": 32,
+    "2017_declining": {
+      "n": 995,
+      "positives": 26,
       "by_operating_point": {
         "high_recall": {
           "threshold": 0.056,
-          "tss": 0.513,
+          "tss": 0.916,
           "tss_ci95": [
-            0.323,
-            0.723
+            -0.142,
+            0.97
           ],
-          "recall": 0.688,
-          "precision": 0.03
+          "recall": 1.0,
+          "precision": 0.243
         },
         "balanced": {
           "threshold": 0.388,
-          "tss": -0.003,
+          "tss": 0.538,
           "tss_ci95": [
-            -0.008,
-            0.0
+            0.0,
+            0.538
           ],
-          "recall": 0.0,
-          "precision": 0.0
+          "recall": 0.538,
+          "precision": 1.0
         },
         "high_precision": {
           "threshold": 0.388,
-          "tss": -0.003,
+          "tss": 0.538,
           "tss_ci95": [
-            -0.008,
-            0.0
+            0.0,
+            0.538
           ],
-          "recall": 0.0,
-          "precision": 0.0
+          "recall": 0.538,
+          "precision": 1.0
         }
       }
     }
@@ -126,9 +132,9 @@
       "rf_live_tss": 0.641,
       "lgbm_live_tss": 0.065
     },
-    "2023_rising_max": {
-      "rf_live_tss": 0.334,
-      "lgbm_live_tss": -0.003
+    "2017_declining": {
+      "rf_live_tss": 0.532,
+      "lgbm_live_tss": 0.538
     }
   },
   "rf_benchmark_tss": 0.772

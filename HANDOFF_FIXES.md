@@ -1,5 +1,36 @@
 # Handoff: verified holes + fix plan (red-team audit, 2026-07-02)
 
+## STATUS UPDATE (session of 2026-07-02 evening, Jonathan's machine)
+
+- **#1 CLOSED for the research/ pipeline.** The gate is now FAIL-CLOSED
+  (`scorecard.label_gate_status`: unmeasured years are excluded too — silence
+  cannot pass); exps 1/4/5 pass every period through it and record exclusions
+  + reasons in their JSONs. The 2023 measurement was independently reproduced
+  (43/289 = 0.15; 2014 control 180/191 = 0.94) and the sweep extended:
+  2017 = 0.95 (42/44), 2020 = 0.00 (0/2), 2021 = 0.55 (17/31),
+  2022 = 0.11 (20/186); 2018/2019 have zero M+ flares. All measured rates are
+  in config `scorecard.label_attribution_by_year`.
+- **Replacement period built:** `eval_2017_declining` (Aug–Oct 2017, the X9.3
+  era; 995 windows, 26 positives, 3 flaring regions). Exps 1/4/5 + figures
+  regenerated: H₀ rejection now rests on 2014 + 2017; exp4's live-data
+  increment is bounded at +0.02.
+- **DATA MACHINE still owed:** `python -m solarflare.reproduce` —
+  skill_scorecard.json / dose_response.json / RESULTS.md still carry 2023.
+  The fail-closed gate needs measured rates for every scored year: 2013–2017
+  are in config, so the regen keeps 2013/15/16/17 and drops 2023.
+- **Deployment flipped:** `sharp_live.operating_point: operational` (rationale
+  in MODEL_CARD). The dashboard badge will now show the self-corrected point.
+- **History grading semantics corrected** (notify._row_record): alerts grade
+  HIT / FALSE_ALARM; daily rows grade CORRECT / INCORRECT against the 50%
+  line. Rows re-grade automatically on the next export from the DB.
+- **ACTION NEEDED — notifier machine:** recipients were scrubbed from
+  config.yaml. Set `$HELIOS_RECIPIENTS` (comma-separated) there or alert/daily
+  e-mails silently drop to dry-run.
+- requirements.txt now includes `drms` + `scipy`.
+- PAPER/ABSTRACT/BOARD were updated **as reference drafts at Jonathan's
+  direction** — the team writes the competition manuscript from scratch in
+  their own words (AI-use disclosure still applies).
+
 ## STATUS (session of 2026-07-02 ~18:00 CT, laptop WITHOUT datasets)
 
 All 12 items implemented and pushed (commits 8ea1136..d39dab3 + this one);

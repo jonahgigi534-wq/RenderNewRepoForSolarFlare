@@ -2,9 +2,12 @@
 
 **Authors:** Jonathan Gigi, Alfred Antony, Aidan George — Cypress Woods High School
 **Category:** Physics & Astronomy
-**Status:** Working draft. All experiments are complete and every result is
-reproducible from the scripts in [`research/`](research/README.md) and
-`solarflare/`. All confidence intervals use cluster bootstrap by active region.
+**Status:** Reference draft — the team writes the competition manuscript from
+scratch in their own words; this document tracks the current, verified numbers
+they should draw from. All experiments are reproducible from the scripts in
+[`research/`](research/README.md) and `solarflare/`. All confidence intervals
+use cluster bootstrap by active region, and all label-dependent evaluations
+pass a fail-closed label-attribution gate (§9; 2023 is excluded by it).
 
 ---
 
@@ -20,22 +23,26 @@ satellite data close the gap?* Using a RandomForest model trained on the
 SWAN-SF benchmark (reported TSS 0.77), we compare its benchmark skill against
 honest, out-of-sample evaluations built directly from live JSOC/SDO
 magnetic-field data and NOAA/HEK flare records, across three periods spanning
-different solar-cycle phases. At the default operating point the model's True
-Skill Statistic falls to **0.35 (2014), 0.64 (2015), and 0.33 (2023)** — the
-benchmark sits above the live point estimate in every period and above the
-cluster-bootstrap 95% confidence interval in two of the three (2014, 2023),
-overstating operational skill by up to ~2×, with a gap size that varies with
-conditions. A controlled 2×2 experiment (benchmark- vs. live-trained models,
-benchmark vs. operational test sets) shows that **training on live data does
-*not* close the gap** — the overstatement is a property of the benchmark's
+different solar-cycle phases (2014, 2015, 2017; a fourth candidate year, 2023,
+is excluded by a label-quality audit — below). At the default operating point
+the model's True Skill Statistic falls to **0.35 (2014), 0.64 (2015), and 0.53
+(2017)** — the benchmark sits above the live point estimate in every period and
+above the cluster-bootstrap 95% confidence interval in two of the three (2014,
+2017), overstating operational skill by up to ~2×, with a gap size that varies
+with conditions. A controlled 2×2 experiment (benchmark- vs. live-trained
+models, benchmark vs. operational test sets) shows that **training on live data
+does *not* close the gap** — the overstatement is a property of the benchmark's
 evaluation set, not of the training distribution. The deployable part of the
-loss traces to the decision threshold's *objective*, not its data: re-tuning the
-threshold for TSS instead of F1 — using only the benchmark's own validation
-split — recovers live TSS to 0.66–0.84 on unseen years (paired gains +0.19 and
-+0.33, CIs excluding zero), while recalibrating the threshold on live data adds
-nothing further (increment ≈ 0). We identify the mechanisms that inflate
-benchmark scores and argue that honest evaluation requires fixing the benchmark
-test, not the training data.
+loss traces to the decision threshold's *objective*, not its data: re-tuning
+the threshold for TSS instead of F1 — using only the benchmark's own validation
+split — recovers live TSS to 0.82–0.84 on unseen years (paired gain +0.19 on
+2015, CI excluding zero; +0.31 on 2017, wide CI), while recalibrating the
+threshold on live data adds at most +0.02. Auditing our own evaluation revealed
+that the flare catalog's active-region attribution collapsed after 2021 (94–98%
+of M+ flares attributed in 2013–2017 vs. 15% in 2023), silently corrupting
+labels — all label-dependent evaluations now pass a fail-closed label-quality
+gate. We identify the mechanisms that inflate benchmark scores and argue that
+honest evaluation requires fixing the benchmark test, not the training data.
 
 ---
 
@@ -132,8 +139,12 @@ directly from JSOC (`hmi.sharp_cea_720s`), and M+ flare labels with active-regio
 associations are pulled from NOAA's GOES event list via the HEK API. Records are
 sliced into the identical 12 h windows and passed through the identical feature
 transform used in training and live inference. All three test periods (2014,
-2015, 2023) begin at least ~22 months after the training data ends, making them
-strictly out-of-sample.
+2015, 2017) begin at least ~22 months after the training data ends, making them
+strictly out-of-sample. Because these labels depend on HEK/SWPC attributing each
+flare to a NOAA active region, every evaluated year must pass a **fail-closed
+label-quality gate** (measured attribution rate ≥ 0.8; audit in §9): 2023, whose
+attribution rate is 0.15, remains declared in the scripts but is excluded, with
+the exclusion and its reason recorded in the result artifacts.
 
 **Metrics.** TSS (primary), HSS, recall, precision, evaluated at each operating
 point, with cluster-bootstrap 95% confidence intervals on TSS (whole active
@@ -150,45 +161,53 @@ cluster bootstraps — both thresholds scored on the same resampled regions.
 three out-of-sample live-JSOC periods spanning different solar-cycle phases, all
 after the training span (2010-05 → 2012-03):
 
-| Period | SHARP records | M/X flares | Windows | Positives | Base rate |
+| Period | SHARP records | M/X flares (attributed) | Windows | Positives | Base rate |
 |---|---:|---:|---:|---:|---:|
 | 2014 (solar max) | 123,309 | 58 | 3,503 | 149 | 4.25% |
 | 2015 (declining) | 103,850 | 28 | 2,940 | 75 | 2.55% |
-| 2023 (rising max) | 142,259 | 13 | 4,075 | 32 | 0.79% |
+| 2017 (declining, Sept X-flares) | 32,841 | 32 | 995 | 26 | 2.61% |
+
+*A fourth candidate period (2023 Q1) is excluded by the label-quality gate: only
+15% of 2023's M+ flares carry the NOAA-AR attribution our labeler requires, so
+its apparent 0.79% base rate was catalog decay, not the Sun (§9). 2017's
+positives concentrate in three flaring regions (September 2017, AR 12673 era),
+which honest region-level resampling turns into wide intervals below.*
 
 **Benchmark vs. live skill (TSS with cluster-bootstrap 95% CI by active region,
 n=1000 replicates; Figure 1).**
 
-| Operating point | Benchmark | 2014 live | 2015 live | 2023 live |
+| Operating point | Benchmark | 2014 live | 2015 live | 2017 live |
 |---|---:|---:|---:|---:|
-| **balanced (default)** | **0.772** | 0.350 [0.19–0.47] | 0.641 [0.15–0.81] | 0.334 [0.08–0.63] |
-| high-recall | 0.877 | 0.640 [0.47–0.76] | 0.831 [0.69–0.92] | 0.662 [0.46–0.80] |
-| high-precision | 0.752 | 0.340 [0.18–0.47] | 0.602 [0.16–0.75] | 0.339 [0.08–0.64] |
+| **balanced (default)** | **0.772** | 0.350 [0.19–0.47] | 0.641 [0.15–0.81] | 0.532 [−0.08–0.57] |
+| high-recall | 0.877 | 0.640 [0.47–0.76] | 0.831 [0.69–0.92] | 0.821 [−0.29–0.93] |
+| high-precision | 0.752 | 0.340 [0.18–0.47] | 0.602 [0.16–0.75] | 0.497 [−0.07–0.53] |
 
 *Like-for-like comparison: the benchmark column shows the same model at the same
 three validation-tuned thresholds. Matched-threshold gaps at high-recall —
-+0.24 (2014), +0.05 (2015), +0.22 (2023) — isolate the residual (era-shift)
-component of the gap once threshold effects are removed.*
++0.24 (2014), +0.05 (2015), +0.06 (2017, point estimate) — isolate the residual
+(era-shift) component of the gap once threshold effects are removed. 2017's
+intervals are wide because its 26 positives sit in three active regions.*
 
 Precision at the default operating point: 2014 = 0.219, 2015 = 0.407,
-2023 = **0.043** (at 0.79% base rate the model still catches 91% of flares at the
-high-recall point, but precision collapses — a direct demonstration of the
-rare-event precision ceiling).
+2017 = 0.254 — and at the high-recall point precision drops to 0.13–0.18 while
+recall reaches 0.86–1.00: catching nearly every rare event costs false alarms,
+the fundamental rare-event trade-off (§7 quantifies why accuracy hides it).
 
 **Findings.**
 1. **The benchmark overstates live skill in every period.** At the default
    operating point the benchmark TSS (0.772) lies above the live point estimate
-   in all three periods and *above the upper 95% CI* in 2014 and 2023 (upper
-   bounds 0.47 and 0.63) — H₀ is rejected in those two. In 2015 the point
+   in all three periods and *above the upper 95% CI* in 2014 and 2017 (upper
+   bounds 0.47 and 0.57) — H₀ is rejected in those two. In 2015 the point
    estimate is far below (0.641) but its interval is wide ([0.15–0.81]: the 75
    positives concentrate in a few active regions, and honest region-level
    resampling reflects that), so 2015 alone does not reject H₀. Mean live
-   default TSS ≈ 0.44, an overstatement of ~1.75×.
+   default TSS ≈ 0.51, an overstatement of ~1.5× on average and ~2.2× at solar
+   max.
 2. **The gap is condition-dependent, not a fixed factor.** It is largest at
-   solar max (2014: 0.35; 2023: 0.33 — roughly 2× overstated) and smallest in the
-   declining phase (2015: 0.64, approaching the benchmark). A single benchmark
-   number is therefore an unreliable predictor of operational skill, and the
-   discrepancy itself varies with observing conditions.
+   solar max (2014: 0.35, roughly 2.2× overstated) and smaller in the declining
+   phase (2015: 0.64; 2017: 0.53). A single benchmark number is therefore an
+   unreliable predictor of operational skill, and the discrepancy itself varies
+   with observing conditions.
 3. **The threshold objective, not raw discrimination, drives much of the loss.**
    In every period the high-recall (validation-TSS-optimal) threshold yields
    substantially higher live TSS than the default (e.g., 2014: 0.64 vs 0.35).
@@ -197,14 +216,19 @@ rare-event precision ceiling).
    across periods — while TSS is base-rate-insensitive. The model retains its
    discriminative signal; what fails to transfer is an F1-tuned operating point
    (Section 8 completes this argument).
-4. **Precision tracks the base rate.** At the lowest base rate (2023, 0.79%),
-   default precision falls to 0.043, illustrating that operational usefulness
-   degrades sharply as events become rarer — an effect invisible to benchmark or
-   balanced-data evaluation.
+4. **Even *measuring* operational skill is fragile.** The 2023 period we
+   originally scored here turned out to have only **15% of its M+ flares
+   attributed to active regions** in the live catalog — its apparently
+   record-low base rate (0.79%) was label decay, not the Sun, and its "skill"
+   numbers measured catalog quality rather than the model. A fail-closed
+   label-quality gate now guards every label-dependent evaluation (audit in
+   §9) — itself direct evidence for this paper's thesis that operational
+   evaluation is harder than benchmark evaluation.
 
 These results support H₁ₐ across multiple periods, with H₀ rejected outright in
-2014 and 2023. Low-activity periods carry few positives (2023: 32), so their
-intervals are wide and those estimates are indicative rather than definitive.
+2014 and 2017. Concentrated-positive periods (2017: 26 positives in three
+regions) have wide intervals, so their point estimates are indicative rather
+than definitive.
 
 **Architecture replication — the gap is not a RandomForest quirk.** A **LightGBM**
 gradient-boosted model trained under the identical protocol (same SWAN-SF p1
@@ -212,9 +236,11 @@ training set, region-disjoint chronological split, thresholds tuned on validatio
 only; `research/exp5_second_model.py`) shows the same pattern. At its high-recall
 operating point (threshold 0.056, the like-for-like comparison since its balanced
 threshold degenerated), LightGBM scores **TSS 0.917 on the benchmark test** but
-only **0.559 [0.33–0.73] (2014), 0.743 [0.37–0.90] (2015), and 0.513 [0.32–0.72]
-(2023)** on live data — a positive benchmark-vs-live gap in every period, at every
-operating point, mirroring the RandomForest. Two architectures on the flare task,
+only **0.559 [0.33–0.73] (2014) and 0.743 [0.37–0.90] (2015)** on live data —
+positive gaps of +0.36 and +0.17 mirroring the RandomForest. (On 2017 its
+high-recall point estimate happens to match the benchmark, 0.916, with an
+uninformative CI [−0.14–0.97] from the three-region positive concentration —
+the replication rests on 2014/2015.) Two architectures on the flare task,
 plus the storm model in a different physical domain (Section 8), now show the
 same optimism: the gap is a property of the **evaluation regime**, not of any one
 model family. Notably, LightGBM's validation-tuned balanced threshold also failed
@@ -399,29 +425,39 @@ the test years. Three arms, evaluated on two periods none of them ever saw:
 | Unseen period | @ default 0.104 (val-F1) | @ benchmark-val TSS 0.031 | @ live-recalibrated 0.035 | Paired gain (3 − 1) |
 |---|---:|---:|---:|---:|
 | 2015 (declining) | 0.641 [0.15–0.81] | 0.831 [0.69–0.92] | **0.835 [0.68–0.92]** | **+0.19 [+0.06, +0.63]** |
-| 2023 (rising max) | 0.334 [0.08–0.63] | 0.662 [0.46–0.80] | **0.661 [0.46–0.82]** | **+0.33 [+0.07, +0.62]** |
+| 2017 (declining, Sept X-flares) | 0.532 [−0.08–0.57] | 0.821 [−0.29–0.93] | **0.841 [−0.26–0.94]** | +0.31 [−0.18, +0.38] |
 
-The paired cluster-bootstrap gain CIs exclude zero in both years: committing in
-advance to a TSS-optimal threshold recovers a large, statistically significant
-share of the lost skill on data the threshold never saw, and on 2015 the
-corrected live skill (0.835) exceeds the model's own benchmark score (0.77).
+Committing in advance to a TSS-optimal threshold recovers a large share of the
+lost skill on data the threshold never saw: the paired cluster-bootstrap gain
+CI excludes zero on 2015 (+0.19), and on both years the corrected live skill
+(0.835 / 0.841 point) exceeds the model's own headline benchmark score (0.77).
+2017's paired gain (+0.31) carries a wide interval — its 26 positives sit in
+three active regions, so region-level resampling is honest but blunt there.
 
 **But live data is not the active ingredient.** The benchmark's own validation
-split, re-tuned for TSS, lands within noise of the live-recalibrated threshold
-in both years — the live-data increment is **+0.004 [−0.05, +0.03] (2015)** and
-**−0.001 [−0.07, +0.04] (2023)**, statistically zero. The recovery comes
-entirely from the threshold's *objective*: F1's precision term collapses as the
-base rate falls (4.25% → 0.79% across our periods), so an F1-optimal threshold
-cannot transfer across solar-cycle phases, while TSS — insensitive to the base
-rate by construction — transfers cleanly. This unifies the section's results:
-*nothing about live data helps* — not retraining (the 2×2), not threshold
-recalibration (this experiment). The trade-off is explicit: the TSS-optimal
-point is recall-heavy (2015: recall 0.93 at precision 0.20, vs. 0.67/0.41 at
-the default), so operators trade more false alarms for far fewer missed flares.
-The deployable correction is thus available *before deployment, for free*, from
-the benchmark's own validation data — completing the answer to the research
-question: benchmarks overstate, retraining does not help, and the fix is a
-**base-rate-robust threshold objective**.
+split, re-tuned for TSS, lands within a whisker of the live-recalibrated
+threshold in both years — the live-data increment is **+0.004 [−0.05, +0.03]
+(2015)** and **+0.020 [+0.006, +0.037] (2017)**: at most **+0.02**, an order of
+magnitude below the objective effect. The recovery comes almost entirely from
+the threshold's *objective*: F1's precision term collapses as the base rate
+falls (4.25% → 2.55% → 2.61% across our periods, and further in quiet years),
+so an F1-optimal threshold cannot transfer across solar-cycle phases, while
+TSS — insensitive to the base rate by construction — transfers cleanly. This
+unifies the section's results: *live data barely helps* — not retraining (the
+2×2), and threshold recalibration only marginally (this experiment). The
+trade-off is explicit: the TSS-optimal point is recall-heavy (2015: recall 0.93
+at precision 0.20, vs. 0.67/0.41 at the default), so operators trade more false
+alarms for far fewer missed flares. The deployable correction is thus available
+*before deployment, essentially for free*, from the benchmark's own validation
+data — completing the answer to the research question: benchmarks overstate,
+retraining does not help, and the fix is a **base-rate-robust threshold
+objective**.
+
+**The fix is now deployed.** The live system's default operating point is the
+self-corrected `operational` threshold (0.021, recalibrated once on 2013 by
+`python -m solarflare.recalibrate`, transfer-checked on strictly later years).
+Its live TSS on the three evaluation periods: 0.62 (2014), 0.82 (2015),
+0.77 (2017) — the research finding applied to our own product.
 
 **It generalizes beyond flares.** The same hardened protocol reproduces the
 optimism on the **geomagnetic-storm model** (P(Kp≥5, 24 h) from L1 solar wind;
@@ -470,6 +506,27 @@ labels against our independent HEK/SWPC labeler on the same windows gives
 84 SWAN-SF-only, 2 HEK-only). Label-protocol differences are ruled out as a
 mechanism for the gap — the disagreement is in the *feature distributions and
 calibration*, not the ground truth.
+
+**Label-quality audit — the operational catalog decays.** The negative control
+above certifies the labels in the *benchmark* era; auditing the *live* catalog
+year by year told a different story. Our labeler can only mark a positive
+window when HEK/SWPC attributes the flare to a NOAA active region, so the
+per-year attribution rate bounds label completeness
+(`scripts/label_attribution.py`): 2013–2017 are healthy (**0.94–0.98**), but
+the rate collapses to 0.55 (2021), 0.11 (2022), and **0.15 in 2023 (43 of 289
+M+ flares)** — independently re-measured and confirmed. The 2023 evaluation
+period this paper originally scored was therefore discarding ~85% of true
+positives: its apparently record-low base rate (0.79%) was catalog decay, its
+false-alarm rate was inflated by unlabeled real flares, and its TSS measured
+label noise. All label-dependent evaluations now pass a **fail-closed gate** —
+a year must have a *measured* attribution rate ≥ 0.8 to be scored, and
+unmeasured years are excluded until measured — with every exclusion and reason
+written into the result artifacts. The NOAA comparison (§11) is deliberately
+ungated: its ground truth counts flare-days from the GOES event list and needs
+no AR attribution, which is why 2023 legitimately appears there but not here.
+That our own first-pass evaluation was silently corrupted by catalog decay is
+this paper's thesis in miniature — *operational evaluation must audit every
+link in its chain, including its own labels.*
 
 **Shortcut learning.** The Spearman rank correlation between the benchmark-trained
 and live-trained models' feature importances is only **0.158**. If both models had
@@ -534,22 +591,30 @@ scoring rule) is primary; climatology scores Brier-skill 0.
 |---|---|---:|---:|---:|
 | 2013 | NOAA official | 0.1341 | −0.068 | 0.402 |
 | 2013 | **Helios (deployed)** | **0.1142** | **+0.090** | **0.421** |
-| 2015 | NOAA official | 0.1320 | +0.084 | 0.445 |
-| 2015 | **Helios (deployed)** | **0.1264** | **+0.123** | **0.455** |
+| 2015 | NOAA official | 0.1356 | +0.103 | 0.434 |
+| 2015 | **Helios (deployed)** | **0.1339** | **+0.114** | **0.458** |
 | 2016 | **NOAA official** | **0.0236** | **+0.126** | **0.703** |
 | 2016 | Helios (deployed) | 0.0283 | −0.049 | 0.654 |
 | 2017 | **NOAA official** | **0.0281** | **+0.310** | **0.686** |
 | 2017 | Helios (deployed) | 0.0347 | +0.147 | 0.677 |
+| 2023 | **NOAA official** | **0.2077** | **+0.116** | 0.285 |
+| 2023 | Helios (deployed) | 0.2230 | +0.051 | **0.323** |
+
+*2023 legitimately appears here (unlike §5/§8): this experiment's ground truth
+counts flare-days from the GOES event list and needs no active-region
+attribution, so the label-quality gate (§9) does not apply.*
 
 The deployed system **beats the official forecast on Brier score in 2013 and
-2015** (solar-active years) and trails it in the quieter 2016–2017 — overall,
-trading blows with the operational standard. (Caveat: horizons are close but not
-identical — NOAA's probability covers calendar day D+1, ours a 24 h window ending
-intraday.) Two implications: (i) the honest live skill measured in this paper is
-not an artifact of a weak model — the same system is competitive with NOAA; and
-(ii) even the *official* forecast's skill (peak TSS 0.40–0.70) sits far below
-typical benchmark headline numbers, independently corroborating this paper's
-central claim.
+2015** (solar-active years), trails it in the quieter 2016–2017, and splits
+2023 (NOAA wins Brier, Helios wins peak TSS) — overall, trading blows with the
+operational standard, including one year (2016) where Helios scores *below
+climatology* on Brier skill. (Caveat: horizons are close but not identical —
+NOAA's probability covers calendar day D+1, ours a 24 h window ending
+intraday.) Two implications: (i) the honest live skill measured in this paper
+is not an artifact of a weak model — the same system is competitive with NOAA;
+and (ii) even the *official* forecast's skill (peak TSS 0.29–0.70) sits far
+below typical benchmark headline numbers, independently corroborating this
+paper's central claim.
 
 ---
 
@@ -557,8 +622,13 @@ central claim.
 
 - Each period is a single 3-month window; more windows per solar-cycle phase
   would tighten the estimates.
-- Low-activity periods contain few M+ flares (2023: 32 positives), widening
-  confidence intervals — the 2023 result is indicative, not definitive.
+- Concentrated-positive periods (2017: 26 positives in three active regions)
+  have wide region-level bootstrap intervals — 2017's point estimates are
+  indicative, not definitive.
+- Post-2020 operational years currently cannot be evaluated with our labeler:
+  the live catalog's AR attribution collapsed (0.55 in 2021, 0.11 in 2022,
+  0.15 in 2023). Position-based flare-to-region matching, which needs no AR
+  attribution, would reopen those years and is future work.
 - TSS depends on operating point; comparisons are reported per threshold.
 - The gap now replicates across two flare-model architectures (RandomForest,
   LightGBM) and a storm model in a separate feature space; broader families
@@ -568,7 +638,7 @@ central claim.
   caveats) — H₁ᵦ's refutation is firm for single-year retraining and open for
   larger operational training sets, pending the corrected-protocol regeneration.
 - At the default threshold the 2015 interval is wide (its positives concentrate
-  in a few active regions), so the H₀ rejection rests on 2014 and 2023.
+  in a few active regions), so the H₀ rejection rests on 2014 and 2017.
 
 ---
 
@@ -577,15 +647,20 @@ central claim.
 A SHARP-based flare model reporting TSS 0.77 on the SWAN-SF benchmark achieves
 live, out-of-sample TSS of only 0.35–0.64 at its default operating point across
 three solar-cycle phases — the benchmark sits above the live point estimate in
-every period and above the cluster-bootstrap 95% CI in two of the three,
-overstating operational skill by up to ~2×, condition-dependent.
+every period and above the cluster-bootstrap 95% CI in two of the three (2014,
+2017), overstating operational skill by up to ~2×, condition-dependent.
 A controlled 2×2 experiment further shows that **retraining on live operational
 data does not close the gap**, indicating the overstatement is a property of the
 benchmark's evaluation set rather than of the training distribution — while
 re-tuning the decision threshold for the base-rate-robust **TSS objective**
-recovers TSS to 0.66–0.84 on unseen years (paired gain CIs excluding zero),
-using no operational data at all: the benchmark's own validation split
-suffices, and live-data recalibration adds nothing further. The gap **replicates on a second architecture**
+recovers live TSS to 0.82–0.84 on unseen years (significantly on 2015, paired
+gain +0.19 with CI excluding zero), using no operational data at all: the
+benchmark's own validation split suffices, and live-data recalibration adds at
+most +0.02. Auditing the evaluation itself exposed a second operational
+hazard — the live flare catalog's active-region attribution collapsed from
+0.94–0.98 (2013–2017) to 0.15 (2023), silently corrupting labels — now guarded
+by a fail-closed label-quality gate: honest operational evaluation must audit
+its own labels. The gap **replicates on a second architecture**
 (LightGBM) and on a geomagnetic-storm model in a separate feature space, and it
 survives a hardened protocol (four operational years, cluster bootstrap, frozen
 thresholds). The honestly-evaluated deployed system is nonetheless competitive
@@ -603,13 +678,13 @@ sets, not only curated partitions.
 
 All figures are in `figures/` and reproducible from the experiment scripts.
 
-- **Figure 1** (`fig1_multiperiod.png`) — Benchmark vs. live TSS across 2014/2015/2023, with 95% CIs (Exp 1, §5).
+- **Figure 1** (`fig1_multiperiod.png`) — Benchmark vs. live TSS across 2014/2015/2017 with cluster-bootstrap 95% CIs; 2023 excluded by the label gate (Exp 1, §5).
 - **Figure 2** (`fig2_scorecard_2x2.png`) — The 2×2: training on live data does not close the gap (Exp 3, §8).
 - **Figure 3** (`fig3_distribution_shift.png`) — KS distribution shift across all 17 SHARP features (Exp 2, §9).
 - **Figure 4** (`fig4_accuracy_illusion.png`) — A zero-skill model "wins" on accuracy (§7).
 - **Figure 5** (`fig5_feature_importance.png`) — RandomForest feature importance per SHARP parameter (§10).
 - **Figure 6** (`fig6_pca_scree.png`) — PCA scree; PC1 = active-region size/energy axis (§10).
-- **Figure 7** (`fig7_recalibration_fix.png`) — The fix decomposed: the TSS-objective threshold from the benchmark's own validation (no live data) matches the live-recalibrated one on unseen 2015/2023; both beat the F1-tuned default (§8).
+- **Figure 7** (`fig7_recalibration_fix.png`) — The fix decomposed: the TSS-objective threshold from the benchmark's own validation (no live data) matches the live-recalibrated one on unseen 2015/2017; both beat the F1-tuned default (§8).
 
 ---
 

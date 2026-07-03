@@ -543,7 +543,19 @@ def _row_record(r) -> dict:
     d = dict(r)
     rd = lambda v: round(v, 4) if isinstance(v, (int, float)) else v
     rd3 = lambda v: round(v, 3) if isinstance(v, (int, float)) else v
-    outcome = "pending" if d.get("status") != "verified" else ("HIT" if d.get("materialized") else "MISS")
+    # Outcome grading uses standard forecast-verification terms. An ALERT is an
+    # affirmative warning: event -> HIT, no event -> FALSE_ALARM ("MISS" would be
+    # wrong — in a contingency table a miss is an UNwarned event). A DAILY row
+    # is a logged probability, not a warning: it is CORRECT when the >=50% side
+    # of the forecast matches what happened, INCORRECT otherwise — e.g.
+    # P(M+)=0.44 followed by no M+ flare is a correct lean, not a "MISS".
+    if d.get("status") != "verified":
+        outcome = "pending"
+    elif (d.get("kind") or "alert") == "alert":
+        outcome = "HIT" if d.get("materialized") else "FALSE_ALARM"
+    else:
+        said_yes = (d.get("probability") or 0.0) >= 0.5
+        outcome = "CORRECT" if bool(d.get("materialized")) == said_yes else "INCORRECT"
     err, perr, cerr = d.get("err_dex"), d.get("persist_err_dex"), d.get("clim_err_dex")
     return {"id": d.get("id"), "kind": d.get("kind") or "alert", "issued_ct": _to_ct(d.get("created_at")),
             "forecast_threshold": d.get("threshold"), "p_alert": rd(d.get("probability")),

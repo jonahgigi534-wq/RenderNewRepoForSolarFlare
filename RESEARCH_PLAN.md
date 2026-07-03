@@ -36,7 +36,8 @@ trusted operationally, the honesty of their reported skill is a safety question.
 ## Method (4 experiments)
 1. **Establish the gap** — score the SWAN-SF-trained model on (a) SWAN-SF test
    partition and (b) live JSOC data across **multiple independent periods**
-   (solar-max 2014, quiet 2018–19, solar-max 2023–24).
+   (2014 solar max, 2015 declining, 2017 declining/X-flare era; candidate years
+   must pass the label-quality gate below).
 2. **Diagnose the cause** — compare SHARP feature distributions (curated SWAN-SF
    vs. raw JSOC); KS-tests to show distribution shift is real.
 3. **The fix** — recalibrate thresholds + isotonic-calibrate on a live-JSOC
@@ -47,6 +48,9 @@ trusted operationally, the honesty of their reported skill is a safety question.
 - Leakage-free **region-disjoint** chronological splits — a whole active region
   lives in exactly one of train/val/test (never shuffled). The storm model
   additionally enforces a 5-day temporal gap between splits.
+- **Fail-closed label-quality gate** — a year is scored only with a measured
+  HEK AR-attribution rate ≥ 0.8 (2023 = 0.15 → excluded; unmeasured years are
+  excluded until measured).
 - TSS/HSS, not accuracy (accuracy is degenerate at low base rate).
 - Out-of-sample by design (test periods years outside training).
 - Bootstrap confidence intervals; the gap must exceed CIs to reject H₀.
@@ -72,10 +76,11 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
 
 ## Status / to-do
 - [x] Preliminary gap measured (2014 Q1).
-- [x] **Exp 1: multi-period live re-scores (2014 / 2015 / 2023) — DONE.** Benchmark
-      TSS 0.77 vs live default TSS 0.35 / 0.64 / 0.33; benchmark above the live
+- [x] **Exp 1: multi-period live re-scores (2014 / 2015 / 2017) — DONE.** Benchmark
+      TSS 0.77 vs live default TSS 0.35 / 0.64 / 0.53; benchmark above the live
       point estimate in all three periods and above the cluster-bootstrap 95% CI
-      in 2014/2023. Gap is condition-dependent.
+      in 2014/2017. (2023 excluded: label attribution 0.15.) Gap is
+      condition-dependent.
 - [x] Cluster-bootstrap 95% CIs on TSS (whole active regions resampled) — DONE.
 - [x] Accuracy-illusion demonstration (zero-skill model vs accuracy) — DONE (paper §7).
 - [x] **Exp 2: feature-distribution KS-tests — DONE.** Raw JSOC 2011 vs 2015: all
@@ -89,11 +94,12 @@ calibration" — a reproducible method for honest space-weather forecast evaluat
       via `python -m solarflare.scorecard`. (TODO: choose peak-TSS threshold on a
       validation split, not the test set, to remove mild optimism.)
 - [x] **Exp 4 (the validated fix, decomposed) — DONE.** Three frozen thresholds
-      tested on unseen 2015/2023: default (val-F1) 0.64→0.835 and 0.33→0.66
-      (paired gains +0.19 [0.06,0.63] and +0.33 [0.07,0.62]). The benchmark's own
-      val-TSS threshold performs identically to the live-recalibrated one (live
-      increment ≈ 0) — the fix is the threshold OBJECTIVE (TSS vs F1), not live
-      data (`research/exp4_recalibration.py`, Fig 7, paper §8).
+      tested on unseen 2015/2017: default (val-F1) 0.64→0.835 and 0.53→0.841
+      (paired gains +0.19 [0.06,0.63] and +0.31 [−0.18,0.38]). The benchmark's
+      own val-TSS threshold performs ≈ identically to the live-recalibrated one
+      (live increment ≤ +0.02) — the fix is the threshold OBJECTIVE (TSS vs
+      F1), not live data (`research/exp4_recalibration.py`, Fig 7, paper §8).
+      Deployed: `sharp_live.operating_point: operational`.
 - [ ] More windows per phase to tighten CIs further (optional).
 - [x] **Second-architecture replication (LightGBM) — DONE.** Identical protocol on
       the rebuilt SWAN-SF p1 set (73,492 samples, exact match to the deployed

@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 import joblib
 import numpy as np
 
-from _common import ROOT, RESULTS, load_or_build, bootstrap_tss_ci
+from _common import ROOT, RESULTS, load_or_build, bootstrap_tss_ci, label_gated_periods
 
 from solarflare import data as dataio, evaluate
 from solarflare.config import load_config
@@ -23,6 +23,10 @@ from solarflare.config import load_config
 PERIODS = [
     ("2014_solar_max",  datetime(2014, 1, 1, tzinfo=timezone.utc), datetime(2014, 4, 1, tzinfo=timezone.utc)),
     ("2015_declining",  datetime(2015, 6, 1, tzinfo=timezone.utc), datetime(2015, 9, 1, tzinfo=timezone.utc)),
+    ("2017_declining",  datetime(2017, 8, 1, tzinfo=timezone.utc), datetime(2017, 11, 1, tzinfo=timezone.utc)),
+    # 2023 stays DECLARED but is excluded by the fail-closed label gate (HEK
+    # AR-attribution 0.15 that year — labels under-count positives); the
+    # exclusion and its reason are written into the output JSON.
     ("2023_rising_max", datetime(2023, 1, 1, tzinfo=timezone.utc), datetime(2023, 4, 1, tzinfo=timezone.utc)),
 ]
 OUT = os.path.join(RESULTS, "multiperiod_rescore.json")
@@ -32,12 +36,17 @@ payload = joblib.load(os.path.join(ROOT, "models", "flare_sharp_live_model.jobli
 model = payload["model"]
 ops = payload.get("operating_points", {})
 
+usable, excluded = label_gated_periods(cfg, PERIODS)
 results = {"training_span": payload.get("data_span"),
            "benchmark_swansf": {k: round(payload.get("metrics", {}).get(k, 0), 3)
                                  for k in ("tss", "recall", "precision", "hss")},
+           "excluded_periods": {tag: {"year": yr, "reason": reason}
+                                for tag, yr, reason in excluded},
            "periods": {}}
+for tag, yr, reason in excluded:
+    print(f"EXCLUDED {tag}: {reason}", flush=True)
 
-for name, t0, t1 in PERIODS:
+for name, t0, t1 in usable:
     print(f"\n===== {name}: {t0.date()} .. {t1.date()} =====", flush=True)
     d = load_or_build(name, t0, t1, cfg)
     X3d, y, groups = d["X3d"], np.asarray(d["y"]), d["groups"]

@@ -9,6 +9,12 @@
     "precision": 0.286,
     "hss": 0.408
   },
+  "excluded_periods": {
+    "2023_rising_max": {
+      "year": 2023,
+      "reason": "label-attribution rate 0.15 below the 0.8 gate (HEK/SWPC AR attribution incomplete; labels under-count positives, biasing TSS down)"
+    }
+  },
   "periods": {
     "2014_solar_max": {
       "n": 3503,
@@ -47,6 +53,17 @@
           "recall": 0.403,
           "precision": 0.221,
           "hss": 0.244
+        },
+        "operational": {
+          "threshold": 0.021,
+          "tss": 0.621,
+          "tss_ci95": [
+            0.473,
+            0.734
+          ],
+          "recall": 0.886,
+          "precision": 0.13,
+          "hss": 0.164
         }
       }
     },
@@ -87,46 +104,68 @@
           "recall": 0.627,
           "precision": 0.402,
           "hss": 0.473
+        },
+        "operational": {
+          "threshold": 0.021,
+          "tss": 0.822,
+          "tss_ci95": [
+            0.712,
+            0.904
+          ],
+          "recall": 0.973,
+          "precision": 0.144,
+          "hss": 0.216
         }
       }
     },
-    "2023_rising_max": {
-      "n": 4075,
-      "positives": 32,
-      "base_rate": 0.0079,
+    "2017_declining": {
+      "n": 995,
+      "positives": 26,
+      "base_rate": 0.0261,
       "by_operating_point": {
         "high_recall": {
           "threshold": 0.031,
-          "tss": 0.662,
+          "tss": 0.821,
           "tss_ci95": [
-            0.464,
-            0.803
+            -0.286,
+            0.928
           ],
-          "recall": 0.906,
-          "precision": 0.029,
-          "hss": 0.041
+          "recall": 1.0,
+          "precision": 0.131,
+          "hss": 0.194
         },
         "balanced": {
           "threshold": 0.104,
-          "tss": 0.334,
+          "tss": 0.532,
           "tss_ci95": [
-            0.075,
-            0.632
+            -0.08,
+            0.566
           ],
-          "recall": 0.406,
-          "precision": 0.043,
-          "hss": 0.064
+          "recall": 0.577,
+          "precision": 0.254,
+          "hss": 0.329
         },
         "high_precision": {
           "threshold": 0.107,
-          "tss": 0.339,
+          "tss": 0.497,
           "tss_ci95": [
-            0.079,
-            0.637
+            -0.073,
+            0.529
           ],
-          "recall": 0.406,
-          "precision": 0.045,
-          "hss": 0.069
+          "recall": 0.538,
+          "precision": 0.259,
+          "hss": 0.326
+        },
+        "operational": {
+          "threshold": 0.021,
+          "tss": 0.765,
+          "tss_ci95": [
+            -0.356,
+            0.894
+          ],
+          "recall": 1.0,
+          "precision": 0.102,
+          "hss": 0.145
         }
       }
     }

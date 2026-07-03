@@ -45,7 +45,8 @@ data? We test whether benchmark scores survive contact with operational reality.
 **FIG 1 — the gap** *(largest figure on the board)*
 Caption: *Benchmark TSS 0.77 vs. live 0.35–0.64 across three periods
 (cluster-bootstrap 95% CIs). The benchmark beats the live point estimate in all
-three periods and the upper CI in two (2014, 2023).*
+three periods and the upper CI in two (2014, 2017). A fourth candidate year,
+2023, failed our label-quality audit and is excluded.*
 
 **FIG 2 — the 2×2** *(second-largest)*
 Caption: *Training on live data does NOT close the gap → the overstatement is in
@@ -53,19 +54,22 @@ the benchmark's test set, not the training data.*
 
 **FIG 7 — the fix works, and it's free** *(the closer)*
 Caption: *Re-tuning the threshold for TSS instead of F1 recovers the lost skill
-on unseen years (+0.19/+0.33, paired gain CIs exclude zero) — and the benchmark's
-own validation data suffices: a threshold recalibrated on live 2014 does no
-better (increment ≈ 0). The fix is the threshold's objective, not live data.*
+on unseen years (+0.19 on 2015 with the paired CI excluding zero; +0.31 on 2017,
+wide CI) — and the benchmark's own validation data suffices: a threshold
+recalibrated on live data adds at most +0.02. The fix is the threshold's
+objective, not live data — and it now runs in our deployed system.*
 
 **FIG 4 — the accuracy illusion**
 Caption: *A zero-skill "always no-flare" model scores 96% accuracy (99% at a 1%
 base rate) with zero skill — and beats a real model on accuracy. Accuracy lies.*
 
 **Headline results box** *(bold, boxed)*
-- Benchmark overstates operational skill by **up to 2×** (H₀ rejected in 2014 & 2023).
+- Benchmark overstates operational skill by **up to 2×** (H₀ rejected in 2014 & 2017).
 - Retraining on live data **does not** close the gap (H₁ᵦ **refuted**).
 - **Fixing the threshold objective DOES** (TSS, not F1) — validated on unseen
-  years (+0.19/+0.33 TSS, paired CIs exclude zero) — **and needs no live data**.
+  years (+0.19/+0.31 TSS) — **and needs no live data** (live adds ≤ +0.02).
+- **We audited our own labels**: the live catalog's flare attribution collapsed
+  to 15% by 2023 — a fail-closed label gate now guards every evaluation.
 - The gap is **condition-dependent** (largest at solar max).
 
 ---

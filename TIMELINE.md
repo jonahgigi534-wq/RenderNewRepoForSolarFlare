@@ -115,6 +115,36 @@ The audit found five substantive issues; all were fixed the same day.
   `gap_days` was unused and is removed); the storm model retains its real
   5-day gap. Docs now match the code exactly.
 
+## 2026-07-02 (continued) — Label-quality audit verified; the 2017 replacement period
+The team's hostile audit (separate session, same day) discovered that the live
+flare catalog's active-region attribution collapsed in recent years — our
+labeler needs it, so 2023's labels silently dropped ~85% of real flares. This
+session independently verified and extended that finding, then rebuilt the
+affected evidence on clean data.
+
+- **Independent verification:** 2023 attribution re-measured from fresh HEK
+  queries: 43/289 = 0.15 (exact match); 2014 control: 180/191 = 0.94 (exact
+  match). Decay curve mapped: 0.94–0.98 (2013–2017), 0.55 (2021), 0.11 (2022),
+  0.15 (2023); 2018/2019 had zero M+ flares.
+- **Fail-closed gate:** the label-quality gate now excludes *unmeasured* years
+  too (silence cannot pass), and the research pipeline (Exps 1/4/5) passes
+  every period through it, recording exclusions + reasons in the artifacts.
+- **Replacement period:** live JSOC Aug–Oct 2017 (September X9.3 era;
+  attribution 0.95) fetched and scored — 995 windows, 26 positives across
+  3 flaring regions. H₀ rejection now rests on 2014 and 2017; Exp 4's paired
+  recalibration gain is significant on 2015 (+0.19) with the live-data
+  increment bounded at +0.02.
+- **The fix, deployed:** the live dashboard now runs the self-corrected
+  TSS-objective operating point (`operational`, threshold 0.021) instead of
+  the F1-tuned default the research showed collapsing operationally.
+- **Verification-log honesty:** prediction-history grading corrected to
+  standard forecast-verification terms (alerts: HIT / FALSE_ALARM; daily
+  probability logs: CORRECT / INCORRECT against the 50% line).
+- **Hygiene:** personal e-mail addresses removed from the committed config
+  (env `$HELIOS_RECIPIENTS`); `drms`/`scipy` added to requirements.
+- **Paper/abstract/board updated as reference drafts** — the team writes the
+  competition manuscript from scratch in their own words.
+
 ---
 
 ## How to keep this file current

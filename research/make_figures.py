@@ -19,9 +19,24 @@ ks = json.load(open(os.path.join(RESULTS, "exp2_distribution.json")))
 ph = json.load(open(os.path.join(RESULTS, "physics.json")))
 BENCH_TSS = mp["benchmark_swansf"]["tss"]
 
+# Pretty labels per period tag; figures derive their period lists from the JSON
+# artifacts, so label-gated exclusions (e.g. 2023) drop out automatically.
+PERIOD_LABELS = {
+    "2014_solar_max": "2014\n(solar max)",
+    "2015_declining": "2015\n(declining)",
+    "2017_declining": "2017\n(declining, Sept X-flares)",
+    "2023_rising_max": "2023\n(rising max)",
+}
+plabel = lambda tag: PERIOD_LABELS.get(tag, tag)
+
+def excluded_note(d, key):
+    ex = d.get(key) or {}
+    return "; ".join(f"{tag.split('_')[0]} excluded: label-attribution "
+                     f"{'unmeasured' if 'unmeasured' in v['reason'] else 'below gate'}"
+                     for tag, v in sorted(ex.items()))
+
 # ---------- Fig 1: Exp 1 multi-period ----------
-periods = [("2014_solar_max", "2014\n(solar max)"), ("2015_declining", "2015\n(declining)"),
-           ("2023_rising_max", "2023\n(rising max)")]
+periods = [(tag, plabel(tag)) for tag in mp["periods"]]
 labels = [p[1] for p in periods]
 bal = [mp["periods"][p[0]]["by_operating_point"]["balanced"] for p in periods]
 hr = [mp["periods"][p[0]]["by_operating_point"]["high_recall"] for p in periods]
@@ -38,9 +53,14 @@ ax.bar(x - w/2, [r["tss"] for r in bal], w, yerr=err(bal), capsize=4, color=C_LI
 ax.bar(x + w/2, [r["tss"] for r in hr], w, yerr=err(hr), capsize=4, color=C_HR, label="live @ high-recall")
 ax.set_xticks(x); ax.set_xticklabels(labels); ax.set_ylabel("TSS (True Skill Statistic)")
 ax.set_ylim(0, 1)
-ax.set_title("Benchmark sits above live skill in every period\n(above the 95% CI in 2014 & 2023)")
+ax.set_title("Benchmark sits above live default-threshold skill in every period")
 ax.legend(loc="upper right", framealpha=0.95)
-fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig1_multiperiod.png")); plt.close(fig)
+fig.tight_layout()
+note = excluded_note(mp, "excluded_periods")
+if note:
+    fig.subplots_adjust(bottom=0.17)
+    fig.text(0.99, 0.02, note, ha="right", fontsize=8, color="#495057")
+fig.savefig(os.path.join(FIGURES, "fig1_multiperiod.png")); plt.close(fig)
 
 # ---------- Fig 2: Exp 3 the 2x2 scorecard ----------
 # Models without a leakage-free benchmark cell (benchmark_tss null) are plotted
@@ -136,7 +156,7 @@ fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig6_pca_scree.png")); pl
 rc_path = os.path.join(RESULTS, "recalibration.json")
 if os.path.exists(rc_path):
     rc = json.load(open(rc_path))
-    tests = [("2015_declining", "2015 (unseen)"), ("2023_rising_max", "2023 (unseen)")]
+    tests = [(tag, f"{tag.split('_')[0]} (unseen)") for tag in rc["tests"]]
     labels = [t[1] for t in tests]
     arms = [("default", f"default {rc['default_threshold']} (val-F1)", "#adb5bd"),
             ("benchmark_val_tss",
@@ -159,8 +179,8 @@ if os.path.exists(rc_path):
                     fontweight="bold", fontsize=9)
     ax.set_xticks(x); ax.set_xticklabels(labels); ax.set_ylabel("live TSS")
     ax.set_ylim(0, 1.22)
-    ax.set_title("The fix is the threshold objective (TSS, not F1) — live data adds nothing:\n"
-                 "the benchmark's own val-TSS threshold matches the live-recalibrated one")
+    ax.set_title("The fix is the threshold objective (TSS, not F1) — live data adds ≤ +0.02:\n"
+                 "the benchmark's own val-TSS threshold ≈ the live-recalibrated one")
     ax.legend(loc="lower right", framealpha=0.95, fontsize=8.5)
     fig.tight_layout(); fig.savefig(os.path.join(FIGURES, "fig7_recalibration_fix.png")); plt.close(fig)
     print("wrote fig7")

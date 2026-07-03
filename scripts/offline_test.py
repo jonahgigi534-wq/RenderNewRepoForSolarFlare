@@ -39,7 +39,8 @@ check("all modules compile", bool(ok))
 import numpy as np                                        # noqa: E402
 
 from solarflare.scorecard import (detect_operational_years,               # noqa: E402
-                                  frozen_tss, label_excluded_years, peak_tss)
+                                  frozen_tss, label_excluded_years,
+                                  label_gate_status, peak_tss)
 
 y = np.array([1, 0, 1, 0])
 p_perfect = np.array([0.9, 0.1, 0.8, 0.2])
@@ -50,15 +51,22 @@ check("peak TSS clips to 0 on anti-skill", peak_tss(y, 1 - p_perfect) == 0.0)
 check("degenerate one-class set scores 0", peak_tss(np.zeros(4), p_perfect) == 0.0)
 
 cfg_gate = {"scorecard": {"min_label_attribution": 0.8,
-                          "label_attribution_by_year": {2014: 0.94, 2023: 0.15}}}
+                          "label_attribution_by_year": {2014: 0.94, 2015: 0.98,
+                                                        2023: 0.15}}}
 check("label gate flags 2023 only", label_excluded_years(cfg_gate) == {2023: 0.15})
 check("label gate empty without cfg", label_excluded_years(None) == {})
+check("gate passes a measured-good year", label_gate_status(cfg_gate, 2015)[0])
+check("gate rejects a measured-bad year", not label_gate_status(cfg_gate, 2023)[0])
+check("gate is FAIL-CLOSED for unmeasured years",
+      not label_gate_status(cfg_gate, 2016)[0]
+      and "unmeasured" in label_gate_status(cfg_gate, 2016)[1])
 d = tempfile.mkdtemp()
-for yr in (2015, 2023, 2014):
+for yr in (2015, 2016, 2023, 2014):
     open(os.path.join(d, f"dataset_{yr}.npz"), "w").close()
 check("ungated year detection keeps 2023 (noaa_baseline path)",
-      detect_operational_years(d) == [2015, 2023])
-check("gated year detection drops 2023", detect_operational_years(d, cfg_gate) == [2015])
+      detect_operational_years(d) == [2015, 2016, 2023])
+check("gated detection drops measured-bad 2023 AND unmeasured 2016",
+      detect_operational_years(d, cfg_gate) == [2015])
 
 from solarflare import magnitude                          # noqa: E402
 from solarflare.config import load_config                 # noqa: E402

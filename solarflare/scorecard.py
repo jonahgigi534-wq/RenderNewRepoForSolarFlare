@@ -173,13 +173,35 @@ def reliability_bins(y, p, n_bins: int = 10) -> dict:
 # ----------------------------------------------------------------------
 # The experiment
 # ----------------------------------------------------------------------
+def label_gate_status(cfg: dict | None, year: int) -> tuple[bool, str]:
+    """FAIL-CLOSED label-quality check for one year. Our labeler can only mark a
+    positive when HEK/SWPC gives the flare a NOAA AR number, so a year needs a
+    MEASURED attribution rate at or above scorecard.min_label_attribution to be
+    scored — an unmeasured year is excluded too (silence must not pass the
+    gate; 2023 taught us why). Returns (ok, reason_if_not)."""
+    sc = (cfg or {}).get("scorecard", {}) or {}
+    gate = float(sc.get("min_label_attribution", 0.0))
+    if gate <= 0:
+        return True, ""
+    rates = {int(y): float(r)
+             for y, r in (sc.get("label_attribution_by_year") or {}).items()}
+    r = rates.get(int(year))
+    if r is None:
+        return False, (f"label-attribution rate unmeasured (gate {gate:g}) — run "
+                       f"scripts/label_attribution.py {year} {year} and record it "
+                       "in config scorecard.label_attribution_by_year")
+    if r < gate:
+        return False, (f"label-attribution rate {r:.2f} below the {gate:g} gate "
+                       "(HEK/SWPC AR attribution incomplete; labels under-count "
+                       "positives, biasing TSS down)")
+    return True, ""
+
+
 def label_excluded_years(cfg: dict | None) -> dict[int, float]:
-    """Years whose measured HEK AR-attribution rate is below the config gate
-    (scorecard.min_label_attribution). Our labeler can only mark a positive when
-    HEK/SWPC gives the flare a NOAA AR number, so a low-attribution year
-    under-counts positives and its TSS is biased down by label noise — such
-    years must not be scored by label-dependent evaluations.
-    Returns {year: measured_attribution_rate}."""
+    """Years whose MEASURED attribution rate is below the gate, {year: rate}.
+    (Unmeasured years are additionally excluded by label_gate_status /
+    detect_operational_years — this map only lists the measured-bad ones,
+    for artifact annotations.)"""
     sc = (cfg or {}).get("scorecard", {}) or {}
     gate = float(sc.get("min_label_attribution", 0.0))
     rates = sc.get("label_attribution_by_year", {}) or {}
@@ -189,13 +211,19 @@ def label_excluded_years(cfg: dict | None) -> dict[int, float]:
 def detect_operational_years(data_dir: str, cfg: dict | None = None) -> list[int]:
     """Every dataset_YYYY.npz on disk that is unseen by BOTH models. Pass cfg to
     also apply the label-attribution gate (required for label-dependent
-    evaluations; noaa_baseline legitimately omits it)."""
-    bad = set(label_excluded_years(cfg))
+    evaluations; noaa_baseline legitimately omits it). The gate is fail-closed:
+    a year without a measured attribution rate is excluded until measured."""
     years = []
     for fn in os.listdir(data_dir) if os.path.isdir(data_dir) else []:
         m = re.fullmatch(r"dataset_(\d{4})\.npz", fn)
-        if m and int(m.group(1)) not in _TRAINING_ERA_YEARS and int(m.group(1)) not in bad:
-            years.append(int(m.group(1)))
+        if not m:
+            continue
+        yr = int(m.group(1))
+        if yr in _TRAINING_ERA_YEARS:
+            continue
+        if cfg is not None and not label_gate_status(cfg, yr)[0]:
+            continue
+        years.append(yr)
     return sorted(years)
 
 

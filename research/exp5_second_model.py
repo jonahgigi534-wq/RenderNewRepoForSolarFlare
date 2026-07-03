@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 
 import numpy as np
 
-from _common import ROOT, RESULTS, load_or_build, bootstrap_tss_ci
+from _common import ROOT, RESULTS, load_or_build, bootstrap_tss_ci, label_gated_periods
 
 from solarflare import data as dataio, evaluate, sharpdata, sharptrain
 from solarflare.config import load_config
@@ -29,10 +29,15 @@ TRAIN_NPZ = os.path.join(ROOT, "data", "sharp_live", "dataset_swansf_p1.npz")
 PERIODS = [
     ("2014_solar_max",  datetime(2014, 1, 1, tzinfo=timezone.utc), datetime(2014, 4, 1, tzinfo=timezone.utc)),
     ("2015_declining",  datetime(2015, 6, 1, tzinfo=timezone.utc), datetime(2015, 9, 1, tzinfo=timezone.utc)),
+    ("2017_declining",  datetime(2017, 8, 1, tzinfo=timezone.utc), datetime(2017, 11, 1, tzinfo=timezone.utc)),
+    # Declared but excluded by the fail-closed label gate (2023 attribution 0.15).
     ("2023_rising_max", datetime(2023, 1, 1, tzinfo=timezone.utc), datetime(2023, 4, 1, tzinfo=timezone.utc)),
 ]
 
 cfg = load_config()
+PERIODS, _excluded = label_gated_periods(cfg, PERIODS)
+for _tag, _yr, _why in _excluded:
+    print(f"EXCLUDED {_tag}: {_why}", flush=True)
 
 # Train LightGBM with the IDENTICAL protocol the RandomForest used — only the
 # candidate family differs.
@@ -51,6 +56,8 @@ result = {"architecture": "lightgbm",
                       "split of SWAN-SF p1; thresholds tuned on validation only)",
           "benchmark_test": {k: round(bench.get(k, 0), 3)
                               for k in ("tss", "recall", "precision", "hss")},
+          "excluded_periods": {tag: {"year": yr, "reason": why}
+                               for tag, yr, why in _excluded},
           "periods": {}}
 
 for name, t0, t1 in PERIODS:

@@ -350,10 +350,11 @@ notify:
   daily_forecast_enabled: true # also email a FULL forecast once per day (not just alerts)
   daily_send_hour_utc: 13      # send the daily forecast at/after this UTC hour
   history_csv: ""              # prediction-history spreadsheet path (default <project>/prediction_history.csv)
-  recipients:                  # everyone who receives the alert + verification + daily emails
-    - aidangeorge12345@gmail.com
-    - alfantony13@gmail.com
-    - jonahgigi534@gmail.com
+  # Recipient addresses are NOT committed (repo may be shown publicly for
+  # judging). Set $HELIOS_RECIPIENTS (comma-separated) on the machine that runs
+  # the notifier — see notify._recipients(). With no recipients configured the
+  # notifier drops to dry-run and logs to the outbox instead of sending.
+  recipients: []               # set via $HELIOS_RECIPIENTS, e.g. "a@x.com,b@y.com"
   smtp_host: smtp.gmail.com    # Gmail's SMTP server (blank => dry-run)
   smtp_port: 587
   smtp_use_tls: true
@@ -403,7 +404,11 @@ sharp_live:
   # recalibrated on one year of real operational data — the research finding
   # applied to our own product). Falls back to the training default if the
   # artifact doesn't have the requested point yet.
-  operating_point: balanced       # balanced | high_recall | high_precision | operational
+  # Set to "operational" 2026-07-02: the paper measures live TSS ~0.35 at the
+  # F1-tuned "balanced" point (precision collapses with the base rate) vs ~0.8
+  # at a TSS-objective threshold — running the demo on the point our own
+  # research recommends. Trade-off: more warnings, lower precision.
+  operating_point: operational    # balanced | high_recall | high_precision | operational
   # Additional deployable models, saved SEPARATELY from the default above (never
   # overwrites it). The dashboard can run either live and compare them — this is
   # the research finding (does more live training data help?) made tangible as a
@@ -434,14 +439,24 @@ scorecard:
   # label-dependent evaluations (scorecard, dose_response, recalibrate).
   # noaa_baseline is deliberately NOT gated: its ground truth counts flare-days
   # from the GOES event list, which needs no AR attribution.
+  # The gate is FAIL-CLOSED (scorecard.label_gate_status): a year with no
+  # measured rate below is excluded from label-dependent evaluations until
+  # someone measures it — silence must not pass the gate.
   min_label_attribution: 0.8
   label_attribution_by_year:   # measured by scripts/label_attribution.py, 2026-07-02
     2013: 0.98                 # 80/82
     2014: 0.94                 # 180/191
     2015: 0.98                 # 130/132
     2016: 0.94                 # 15/16
-    2023: 0.15                 # 43/289 — the catalog-decay year; 2017-2024 sweep
-                               # unfinished, rerun scripts/label_attribution.py 2017 2024
+    2017: 0.95                 # 42/44
+    2020: 0.00                 # 0/2 — solar minimum, neither flare attributed
+    2021: 0.55                 # 17/31 — the decay begins
+    2022: 0.11                 # 20/186 — collapsed
+    2023: 0.15                 # 43/289 — the catalog-decay year
+    # 2018/2019: zero M+ flares (deep solar minimum) — attribution is
+    # unmeasurable and there is nothing to evaluate; the fail-closed gate
+    # excludes them by omission. The decay curve: healthy 0.94-0.98 through
+    # 2017, degraded 0.55 by 2021, collapsed 0.11-0.15 from 2022 on.
 
 # Dose-response experiment (python -m solarflare.experiments.dose_response):
 # gap vs. amount of live training data, fixed post-2014 test years.

@@ -26,10 +26,11 @@ import joblib
 import numpy as np
 
 from _common import (ROOT, RESULTS, load_or_build, bootstrap_tss_ci,
-                     bootstrap_paired_tss_gain_ci)
+                     bootstrap_paired_tss_gain_ci, label_gated_periods)
 
 from solarflare import data as dataio, evaluate
 from solarflare.config import load_config
+from solarflare.scorecard import label_gate_status
 
 OUT = os.path.join(RESULTS, "recalibration.json")
 
@@ -42,8 +43,18 @@ benchval_thr = float(payload["operating_points"]["high_recall"]["threshold"])  #
 CAL = ("2014_solar_max", datetime(2014, 1, 1, tzinfo=timezone.utc), datetime(2014, 4, 1, tzinfo=timezone.utc))
 TESTS = [
     ("2015_declining",  datetime(2015, 6, 1, tzinfo=timezone.utc), datetime(2015, 9, 1, tzinfo=timezone.utc)),
+    ("2017_declining",  datetime(2017, 8, 1, tzinfo=timezone.utc), datetime(2017, 11, 1, tzinfo=timezone.utc)),
+    # Declared but excluded by the fail-closed label gate (HEK attribution 0.15
+    # in 2023); the exclusion + reason are recorded in the output JSON.
     ("2023_rising_max", datetime(2023, 1, 1, tzinfo=timezone.utc), datetime(2023, 4, 1, tzinfo=timezone.utc)),
 ]
+
+ok, reason = label_gate_status(cfg, CAL[1].year)
+if not ok:
+    raise SystemExit(f"calibration year {CAL[1].year} fails the label gate: {reason}")
+TESTS, _excluded = label_gated_periods(cfg, TESTS)
+for tag, yr, why in _excluded:
+    print(f"EXCLUDED {tag}: {why}", flush=True)
 
 
 def proba_for(tag, t0, t1):
@@ -72,6 +83,8 @@ result = {"calibration_period": CAL[0],
           "recalibrated_threshold": round(recal_thr, 3),
           "tss_on_calibration_period": round(float(cal_tss), 3),
           "ci_method": "cluster bootstrap by active region, 1000 replicates",
+          "excluded_tests": {tag: {"year": yr, "reason": why}
+                             for tag, yr, why in _excluded},
           "tests": {}}
 for tag, t0, t1 in TESTS:
     y, p, groups = proba_for(tag, t0, t1)

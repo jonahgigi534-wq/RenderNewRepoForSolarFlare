@@ -25,6 +25,13 @@ point — the threshold recalibrated on one year of live JSOC data (the
 self-correcting-deployment feature; provenance saved in the artifact). Select
 via `sharp_live.operating_point` in config.yaml.
 
+**Deployed default (since 2026-07-02): `operational`** (threshold 0.021,
+calibrated on 2013). Rationale: the project's own research shows the F1-tuned
+"balanced" point collapses operationally (live TSS ~0.35 at solar max) because
+F1's precision term is base-rate-sensitive, while a TSS-objective threshold
+transfers across solar-cycle phases (live TSS 0.62/0.82/0.77 on 2014/2015/2017).
+Trade-off: recall-heavy — more warnings at lower precision.
+
 **Variant:** `flare_sharp_live_model_multiyear.joblib` — same pipeline trained
 on JSOC 2011+2012+2014 (test TSS 0.83); runs live via
 `/api/sharp_live?variant=multiyear` for side-by-side comparison. The default

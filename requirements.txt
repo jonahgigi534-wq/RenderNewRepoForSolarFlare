@@ -11,6 +11,8 @@ pyyaml>=6.0
 requests>=2.31
 fastapi>=0.110
 uvicorn[standard]>=0.29
+drms>=0.7          # JSOC SHARP fetches (sharpdata, live inference, dataset builds)
+scipy>=1.11        # KS tests (research/exp2, experiments.gap_diagnosis)
 
 # Dataset download (Google Drive)
 gdown>=5.1

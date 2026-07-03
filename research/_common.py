@@ -30,6 +30,25 @@ def load_or_build(tag: str, t0: datetime, t1: datetime, cfg: dict) -> dict:
     return d
 
 
+def label_gated_periods(cfg, periods):
+    """Split (tag, t0, t1) period tuples by the FAIL-CLOSED label-quality gate
+    (solarflare.scorecard.label_gate_status): a period is scored only when its
+    year has a measured HEK AR-attribution rate at/above the config gate —
+    under-attributed years (2023: 0.15) under-count positives and measure
+    catalog decay, not model skill. Returns (usable, excluded) with
+    excluded = [(tag, year, reason), ...] for the output JSON."""
+    from solarflare.scorecard import label_gate_status
+    usable, excluded = [], []
+    for p in periods:
+        year = p[1].year
+        ok, reason = label_gate_status(cfg, year)
+        if ok:
+            usable.append(p)
+        else:
+            excluded.append((p[0], year, reason))
+    return usable, excluded
+
+
 def tss_from(y, pred) -> float:
     tp = int(((pred == 1) & (y == 1)).sum()); fn = int(((pred == 0) & (y == 1)).sum())
     tn = int(((pred == 0) & (y == 0)).sum()); fp = int(((pred == 1) & (y == 0)).sum())

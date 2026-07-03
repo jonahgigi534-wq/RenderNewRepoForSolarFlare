@@ -7,6 +7,12 @@
   "recalibrated_threshold": 0.035,
   "tss_on_calibration_period": 0.649,
   "ci_method": "cluster bootstrap by active region, 1000 replicates",
+  "excluded_tests": {
+    "2023_rising_max": {
+      "year": 2023,
+      "reason": "label-attribution rate 0.15 below the 0.8 gate (HEK/SWPC AR attribution incomplete; labels under-count positives, biasing TSS down)"
+    }
+  },
   "tests": {
     "2015_declining": {
       "default": {
@@ -53,49 +59,49 @@
         0.025
       ]
     },
-    "2023_rising_max": {
+    "2017_declining": {
       "default": {
         "threshold": 0.104,
-        "tss": 0.334,
+        "tss": 0.532,
         "tss_ci95": [
-          0.075,
-          0.632
+          -0.08,
+          0.566
         ],
-        "recall": 0.406,
-        "precision": 0.043,
-        "hss": 0.064
+        "recall": 0.577,
+        "precision": 0.254,
+        "hss": 0.329
       },
       "benchmark_val_tss": {
         "threshold": 0.031,
-        "tss": 0.662,
+        "tss": 0.821,
         "tss_ci95": [
-          0.464,
-          0.803
+          -0.286,
+          0.928
         ],
-        "recall": 0.906,
-        "precision": 0.029,
-        "hss": 0.041
+        "recall": 1.0,
+        "precision": 0.131,
+        "hss": 0.194
       },
       "recalibrated": {
         "threshold": 0.035,
-        "tss": 0.661,
+        "tss": 0.841,
         "tss_ci95": [
-          0.459,
-          0.817
+          -0.255,
+          0.937
         ],
-        "recall": 0.875,
-        "precision": 0.031,
-        "hss": 0.046
+        "recall": 1.0,
+        "precision": 0.144,
+        "hss": 0.217
       },
-      "tss_gain": 0.327,
+      "tss_gain": 0.309,
       "tss_gain_ci95": [
-        0.071,
-        0.617
+        -0.179,
+        0.376
       ],
-      "live_increment_over_benchval": -0.001,
+      "live_increment_over_benchval": 0.02,
       "live_increment_ci95": [
-        -0.074,
-        0.036
+        0.006,
+        0.037
       ]
     }
   }

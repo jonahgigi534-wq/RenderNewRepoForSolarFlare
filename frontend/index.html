@@ -1235,7 +1235,7 @@ async function loadScorecard(){
           cfLine+=' <span class="muted">(no leakage-free benchmark cell — recovery and operational skill only)</span>';
         }
       }
-      rc.innerHTML='<b>Self-corrected deployment</b> <span class="muted">(threshold recalibrated on the first operational year — the fix, applied)</span>: '+
+      rc.innerHTML='<b>Self-corrected deployment</b> <span class="muted">(threshold recalibrated once on the first operational year, frozen for later years — recovers the F1-default loss; lands ≈ the validation-TSS point, so the further gain is small)</span>: '+
         rcRows.join(' · ')+cfLine;
       rc.hidden=false;
     }
