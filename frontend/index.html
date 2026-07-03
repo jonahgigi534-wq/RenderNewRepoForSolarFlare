@@ -1116,23 +1116,25 @@ function reliabilitySVG(rel){
   // per model, log-sized dots by bin count. Pure SVG, dark-ops palette.
   const W=280,H=190,P=34, models=Object.keys(rel||{});
   if(!models.length) return '';
-  const colors=['#5ec8fa','#ffb454'];
-  const sx=p=>P+p*(W-P-10), sy=f=>H-24-f*(H-24-12);
+  const colors=['#5ec8fa','#ffb454','#7ee787'];
+  const T=10+models.length*13;                 // top margin: one stacked legend row per model
+  const sx=p=>P+p*(W-P-10), sy=f=>H-24-f*(H-24-T);
   let pts='';
   models.forEach((m,mi)=>{
     (rel[m].bins||[]).forEach(b=>{
       const r=Math.max(2,Math.min(7,1.5+Math.log10(Math.max(1,b.n))*1.8));
       pts+='<circle cx="'+sx(b.p_mean).toFixed(1)+'" cy="'+sy(b.obs_freq).toFixed(1)+'" r="'+r.toFixed(1)+
-           '" fill="'+colors[mi%2]+'" fill-opacity="0.75"><title>'+m+': predicted '+(b.p_mean*100).toFixed(0)+
+           '" fill="'+colors[mi%colors.length]+'" fill-opacity="0.75"><title>'+m+': predicted '+(b.p_mean*100).toFixed(0)+
            '% → observed '+(b.obs_freq*100).toFixed(0)+'% (n='+b.n+')</title></circle>';
     });
   });
-  const legend=models.map((m,mi)=>'<circle cx="'+(P+8+mi*130)+'" cy="10" r="4" fill="'+colors[mi%2]+'"/>'+
-    '<text x="'+(P+16+mi*130)+'" y="13" fill="#8ea0bf" font-size="10">'+escapeHtml(m)+' (Brier '+(rel[m].brier??'—')+')</text>').join('');
+  // Stacked (not side-by-side) so long model names never collide with each other or the axis below.
+  const legend=models.map((m,mi)=>'<circle cx="'+(P+4)+'" cy="'+(8+mi*13)+'" r="4" fill="'+colors[mi%colors.length]+'"/>'+
+    '<text x="'+(P+12)+'" y="'+(11+mi*13)+'" fill="#8ea0bf" font-size="10">'+escapeHtml(m)+' (Brier '+(rel[m].brier??'—')+')</text>').join('');
   return '<svg viewBox="0 0 '+W+' '+H+'" style="max-width:340px;width:100%" role="img" aria-label="Reliability diagram">'+
     '<line x1="'+sx(0)+'" y1="'+sy(0)+'" x2="'+sx(1)+'" y2="'+sy(1)+'" stroke="#2c3d5e" stroke-dasharray="4 3"/>'+
     '<line x1="'+P+'" y1="'+sy(0)+'" x2="'+(W-10)+'" y2="'+sy(0)+'" stroke="#24304a"/>'+
-    '<line x1="'+P+'" y1="'+sy(0)+'" x2="'+P+'" y2="12" stroke="#24304a"/>'+
+    '<line x1="'+P+'" y1="'+sy(0)+'" x2="'+P+'" y2="'+T+'" stroke="#24304a"/>'+
     '<text x="'+((P+W-10)/2)+'" y="'+(H-4)+'" fill="#8ea0bf" font-size="10" text-anchor="middle">predicted probability</text>'+
     '<text x="10" y="'+((sy(0)+12)/2)+'" fill="#8ea0bf" font-size="10" text-anchor="middle" transform="rotate(-90 10 '+((sy(0)+12)/2)+')">observed frequency</text>'+
     legend+pts+'</svg>';
