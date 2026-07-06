@@ -298,6 +298,9 @@
   .reg-tag { display:inline-block; margin-left:8px; padding:2px 8px; border-radius:999px; font-size:0.64rem; font-weight:600; letter-spacing:0.03em; vertical-align:1px; border:1px solid transparent; white-space:nowrap; }
   .reg-tag.quiet { color:#9fb0c8; background:rgba(120,140,200,0.12); border-color:var(--border); }
   .reg-tag.active { color:var(--c-class); background:rgba(245,197,66,0.13); border-color:rgba(245,197,66,0.30); }
+  .reg-tag.c { color:var(--c-class); background:rgba(245,197,66,0.13); border-color:rgba(245,197,66,0.30); }
+  .reg-tag.m { color:var(--m-class); background:rgba(245,140,66,0.13); border-color:rgba(245,140,66,0.30); }
+  .reg-tag.x { color:var(--x-class); background:rgba(240,80,80,0.14); border-color:rgba(240,80,80,0.32); }
   table.regions tr.reg-quiet { opacity:0.66; }
   table.regions .q { color:var(--text-faint); }
 
@@ -525,9 +528,12 @@
       <button onclick="loadSharpLive((document.getElementById('sharp-date').value||'').trim()||undefined)" style="background:#1b2942;border:1px solid #2c3d5e;color:var(--text);border-radius:6px;padding:3px 12px;cursor:pointer">Test</button>
     </div>
     <table class="tracks" id="sharp-table" hidden aria-label="Live per-region SHARP flare probabilities">
-      <thead><tr><th>Active region</th><th style="text-align:right">P(M+ 24h)</th><th style="text-align:right">Flag</th></tr></thead>
+      <thead><tr><th>Active region</th><th style="text-align:right">P(M+ 24h)</th><th style="text-align:right">Risk band</th></tr></thead>
       <tbody id="sharp-body"></tbody>
     </table>
+    <p class="map-caption" id="sharp-op-caption" hidden style="margin-top:6px">
+      Operating point is <b>recall-maximizing</b>, not precision-tuned — expect many Low/Moderate flags per active region.
+    </p>
   </div>
 
   <!-- Active regions -->
@@ -1393,11 +1399,13 @@ async function loadSharpLive(atISO){
       escapeHtml(String(j.as_of||'').slice(0,16).replace('T',' '))+' UTC'+age+'</span>';
     const rows=(j.regions||[]).slice(0,8).map(reg=>{
       const p=Math.round((reg.p_M_or_greater_24h||0)*100);
-      const flag=reg.will_flare?'<span class="reg-tag active">⚠ watch</span>':'<span class="reg-tag quiet">—</span>';
+      const band=reg.band||{name:'—',tone:'quiet'};
+      const flag='<span class="reg-tag '+escapeHtml(band.tone)+'">'+escapeHtml(band.name)+'</span>';
       return '<tr><td>AR '+escapeHtml(reg.noaa_ar||'—')+'</td><td class="num">'+p+'%</td><td class="num">'+flag+'</td></tr>';
     }).join('');
     body.innerHTML=rows||'<tr><td colspan="3" class="muted">No active regions.</td></tr>';
     tbl.hidden=false;
+    document.getElementById('sharp-op-caption').hidden=!(j.regions||[]).length;
   }catch(e){ /* optional */ }
 }
 

@@ -219,11 +219,13 @@ def _predict_live_impl(cfg: dict, at_time: datetime | None, at_key: str,
         thr = float(model["threshold"])
     recal_year = (ops.get("operational", {}) or {}).get("calibrated_on_year") \
         if op_name == "operational" else None
+    from .labels import probability_band
     regions = []
     for (harp, ar, end_t, _), p in zip(windows, proba):
         regions.append({"harpnum": int(harp), "noaa_ar": int(ar),
                         "p_M_or_greater_24h": round(float(p), 4),
-                        "will_flare": bool(p >= thr)})
+                        "band": probability_band(float(p), cfg),
+                        "above_alert_threshold": bool(p >= thr)})
     regions.sort(key=lambda r: r["p_M_or_greater_24h"], reverse=True)
     full = 1.0 - float(np.prod(1.0 - proba))              # P(any region flares)
     latest = max(w[2] for w in windows)                   # newest T_REC actually used
