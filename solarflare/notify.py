@@ -525,7 +525,7 @@ def log_daily_forecast(cfg: dict, conn: sqlite3.Connection) -> dict:
 _CSV_COLS = ["id", "kind", "issued_ct", "forecast_threshold", "p_alert", "p_M_24h",
              "p_X_24h", "expected_class", "current_class_at_issue", "window_h",
              "verify_after_ct", "status", "actual_peak_class", "actual_peak_flux_wm2",
-             "outcome", "verified_ct", "alert_email", "followup",
+             "outcome", "outcome_detail", "verified_ct", "alert_email", "followup",
              # peak-magnitude forecast + honest log-flux grade
              "predicted_peak_class", "predicted_peak_flux_wm2", "err_dex",
              "persistence_err_dex", "climatology_err_dex",
@@ -543,19 +543,27 @@ def _row_record(r) -> dict:
     d = dict(r)
     rd = lambda v: round(v, 4) if isinstance(v, (int, float)) else v
     rd3 = lambda v: round(v, 3) if isinstance(v, (int, float)) else v
-    # Outcome grading uses standard forecast-verification terms. An ALERT is an
-    # affirmative warning: event -> HIT, no event -> FALSE_ALARM ("MISS" would be
-    # wrong — in a contingency table a miss is an UNwarned event). A DAILY row
-    # is a logged probability, not a warning: it is CORRECT when the >=50% side
-    # of the forecast matches what happened, INCORRECT otherwise — e.g.
-    # P(M+)=0.44 followed by no M+ flare is a correct lean, not a "MISS".
+    # `outcome` is the simple accuracy call: HIT if the forecast's >=50% side
+    # matched what happened, MISS otherwise — same two labels for every kind.
+    # `outcome_detail` keeps the full 2x2 contingency-table term (HIT/MISS/
+    # FALSE_ALARM/CORRECT_REJECTION) so the "why" isn't lost: a MISS in
+    # `outcome` can be either an unwarned event (contingency MISS) or a false
+    # alarm (contingency FALSE_ALARM), and outcome_detail says which.
     if d.get("status") != "verified":
-        outcome = "pending"
-    elif (d.get("kind") or "alert") == "alert":
-        outcome = "HIT" if d.get("materialized") else "FALSE_ALARM"
+        outcome = outcome_detail = "pending"
     else:
-        said_yes = (d.get("probability") or 0.0) >= 0.5
-        outcome = "CORRECT" if bool(d.get("materialized")) == said_yes else "INCORRECT"
+        said_yes = True if (d.get("kind") or "alert") == "alert" \
+            else (d.get("probability") or 0.0) >= 0.5
+        materialized = bool(d.get("materialized"))
+        outcome = "HIT" if said_yes == materialized else "MISS"
+        if said_yes and materialized:
+            outcome_detail = "HIT"
+        elif said_yes and not materialized:
+            outcome_detail = "FALSE_ALARM"
+        elif not said_yes and materialized:
+            outcome_detail = "MISS"
+        else:
+            outcome_detail = "CORRECT_REJECTION"
     err, perr, cerr = d.get("err_dex"), d.get("persist_err_dex"), d.get("clim_err_dex")
     return {"id": d.get("id"), "kind": d.get("kind") or "alert", "issued_ct": _to_ct(d.get("created_at")),
             "forecast_threshold": d.get("threshold"), "p_alert": rd(d.get("probability")),
@@ -564,6 +572,7 @@ def _row_record(r) -> dict:
             "window_h": d.get("window_h"), "verify_after_ct": _to_ct(d.get("verify_after")),
             "status": d.get("status"), "actual_peak_class": d.get("actual_peak_class"),
             "actual_peak_flux_wm2": d.get("actual_peak_flux"), "outcome": outcome,
+            "outcome_detail": outcome_detail,
             "verified_ct": _to_ct(d.get("verified_at")), "alert_email": d.get("alert_status"),
             "followup": d.get("followup_status"),
             "predicted_peak_class": d.get("pred_peak_class"),
