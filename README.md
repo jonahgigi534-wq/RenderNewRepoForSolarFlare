@@ -206,8 +206,8 @@ the clean test partition (ExtraTrees winner):
 
 | Point | Threshold | TSS | Recall | Precision | Use when |
 |---|---|---|---|---|---|
-| `high_recall` | 0.066 | 0.745 | **0.99** | 0.05 | never miss a flare |
-| `balanced` *(default)* | 0.329 | **0.870** | 0.93 | 0.18 | best overall skill |
+| `high_recall` *(default, deployed)* | 0.066 | 0.745 | **0.99** | 0.05 | never miss a flare |
+| `balanced` | 0.329 | **0.870** | 0.93 | 0.18 | best overall skill |
 | `high_precision` | 0.754 | 0.678 | 0.70 | **0.34** | fewest false alarms |
 
 **What's a "good" precision here?** Above the 1.3% base rate = skill. Research
@@ -251,7 +251,8 @@ supply the **original** SWAN-SF multi-class labels and set
 | `GET /api/geomag` | high-latitude auroral oval (NOAA OVATION) + Kp/G-scale + aurora visibility |
 | `GET /api/satellites` | satellites at risk by altitude band (CelesTrak TLE; `?scope=default\|all`) |
 | `GET /api/storm` | geomagnetic-storm forecast — P(Kp≥5, 24 h) from the L1 solar wind (OMNI-trained ML) |
-| `GET /api/sharp_live` | live SHARP ML flare forecast — P(M+ in 24 h) per active region from JSOC magnetic data (our own JSOC-trained model; `?at=ISO` for a historical demo) |
+| `GET /api/sharp_live` | live SHARP ML flare forecast — P(M+ in 24 h) per active region from JSOC magnetic data (our own JSOC-trained model; `?at=ISO` for a historical demo, `?variant=` to pick a deployable alternate model) |
+| `GET /api/sharp_live/variants` | which live-SHARP model variants are deployable and whether each has been trained on this machine |
 | `GET /api/scorecard` | the research result: benchmark vs operational TSS with bootstrap CIs, frozen thresholds, per-year scores, reliability data (+ storm check & NOAA baseline when built) |
 | `GET /api/diagnosis` | WHY the gap exists — label audit, distribution shift, permutation importance |
 | `GET /api/impact` | plain-language R/S/G space-weather impact statements + historical cost anchors |
@@ -381,6 +382,7 @@ solarflare/
   satellites.py             satellites-at-risk by altitude band (CelesTrak TLE)
   storm.py     stormdata.py geomagnetic-storm forecaster · OMNI loader + features
   impact.py    alerts.py    R/S/G plain-language impacts · threshold alerts (+ demo)
+  notify.py                 daily/alert prediction logger + verifier · prediction_history.csv exporter
   sharpdata.py sharptrain.py JSOC+HEK dataset builder · live-model trainer
   swansf_data.py sharp_live.py SWAN-SF tar parser · live JSOC inference
   scorecard.py storm_scorecard.py  the 2x2 research experiment (+CIs) · storm check
