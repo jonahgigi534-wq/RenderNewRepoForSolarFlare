@@ -312,6 +312,117 @@
           }
         }
       }
+    },
+    {
+      "name": "Live-trained (multi-year)",
+      "detail": "JSOC 2011+2012+2014",
+      "operational_years_used": [
+        2015,
+        2016,
+        2017
+      ],
+      "operational_tss": 0.888,
+      "operational_ci": [
+        0.587,
+        0.927
+      ],
+      "by_year": {
+        "2015": {
+          "peak_tss": 0.852,
+          "peak_ci": [
+            0.807,
+            0.905
+          ],
+          "frozen_tss": 0.85,
+          "frozen_ci": [
+            0.796,
+            0.891
+          ],
+          "n": 12597,
+          "positives": 273
+        },
+        "2016": {
+          "peak_tss": 0.914,
+          "peak_ci": [
+            0.882,
+            0.992
+          ],
+          "frozen_tss": 0.912,
+          "frozen_ci": [
+            0.879,
+            0.94
+          ],
+          "n": 7440,
+          "positives": 25
+        },
+        "2017": {
+          "peak_tss": 0.899,
+          "peak_ci": [
+            0.0,
+            0.969
+          ],
+          "frozen_tss": 0.837,
+          "frozen_ci": [
+            0.0,
+            0.916
+          ],
+          "n": 3474,
+          "positives": 43
+        }
+      },
+      "benchmark_tss": null,
+      "gap": null,
+      "benchmark_ci": null,
+      "gap_ci": null,
+      "benchmark_note": "no leakage-free benchmark test exists for this model: its live training years (JSOC 2011+2012+2014) cover the SWAN-SF test split's era, so the same active regions appear in training and test",
+      "frozen": {
+        "threshold": 0.024,
+        "benchmark_tss": null,
+        "benchmark_ci": null,
+        "operational_tss": 0.866,
+        "operational_ci": [
+          0.58,
+          0.899
+        ],
+        "gap": null,
+        "gap_ci": null
+      },
+      "recalibrated": {
+        "calibrated_on": 2015,
+        "threshold": 0.047,
+        "eval_years": [
+          2016,
+          2017
+        ],
+        "operational_tss": 0.824,
+        "operational_ci": [
+          0.383,
+          0.926
+        ],
+        "before_tss_same_years": 0.874,
+        "recovery": -0.051,
+        "recovery_ci": [
+          -0.096,
+          0.032
+        ],
+        "benchmark_note": "no leakage-free benchmark cell for this model \u2014 recovery and operational skill only",
+        "by_year": {
+          "2016": {
+            "frozen_tss": 0.779,
+            "frozen_ci": [
+              0.691,
+              0.952
+            ]
+          },
+          "2017": {
+            "frozen_tss": 0.868,
+            "frozen_ci": [
+              0.0,
+              0.945
+            ]
+          }
+        }
+      }
     }
   ],
   "reliability": {
@@ -389,6 +500,33 @@
       ],
       "brier": 0.0129,
       "base_rate": 0.0145
+    },
+    "Live-trained (multi-year)": {
+      "bins": [
+        {
+          "p_lo": 0.0,
+          "p_hi": 0.1,
+          "p_mean": 0.0076,
+          "obs_freq": 0.0065,
+          "n": 22924
+        },
+        {
+          "p_lo": 0.1,
+          "p_hi": 0.2,
+          "p_mean": 0.1311,
+          "obs_freq": 0.2888,
+          "n": 516
+        },
+        {
+          "p_lo": 0.2,
+          "p_hi": 0.3,
+          "p_mean": 0.2333,
+          "obs_freq": 0.6197,
+          "n": 71
+        }
+      ],
+      "brier": 0.01197,
+      "base_rate": 0.0145
     }
   },
   "findings": {
@@ -415,7 +553,21 @@
       -0.092,
       0.025
     ],
-    "more_live_data": null,
+    "more_live_data": {
+      "years_compared": [
+        2015,
+        2016,
+        2017
+      ],
+      "single_year_operational_tss": 0.832,
+      "multi_year_operational_tss": 0.888,
+      "more_data_improves_operational_skill": true,
+      "multi_minus_single_operational_ci": [
+        0.003,
+        0.094
+      ],
+      "note": "operational-skill comparison on identical years; no leakage-free benchmark cell exists for the multi-year model, so gap-vs-gap is not defined for it"
+    },
     "recalibration": {
       "benchmark_trained": {
         "recovery": 0.027,
@@ -430,6 +582,26 @@
           0.322
         ],
         "recovers_significantly": false
+      },
+      "combined_fix": {
+        "description": "multi-year live training + one-year threshold recalibration",
+        "operational_tss": 0.824,
+        "operational_ci": [
+          0.383,
+          0.926
+        ],
+        "recovery": -0.051,
+        "recovery_ci": [
+          -0.096,
+          0.032
+        ],
+        "recovers_significantly": false,
+        "gap_before_same_years": null,
+        "gap_after": null,
+        "gap_after_ci": null,
+        "gap_closed": null,
+        "gap_not_significant": null,
+        "note": "no leakage-free benchmark cell for this model \u2014 recovery and operational skill only"
       }
     }
   }

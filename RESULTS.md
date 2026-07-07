@@ -12,11 +12,15 @@ Benchmark test: held-out SWAN-SF magnetograms (14690 windows, 236 flares). Opera
 |---|---|---|---|---|
 | Benchmark-trained (SWAN-SF 2010-2012) | 0.906 | 0.828 | **+0.078** (95% CI +0.006..+0.306) | +0.085 (95% CI +0.007..+0.309) |
 | Live-trained (JSOC live data (2014)) | 0.914 | 0.832 | **+0.082** (95% CI +0.005..+0.380) | +0.157 (95% CI -0.064..+0.568) |
+| Live-trained (multi-year) (JSOC 2011+2012+2014) | — | 0.888 | **—** | — |
 
+- *Live-trained (multi-year)*: no leakage-free benchmark test exists for this model: its live training years (JSOC 2011+2012+2014) cover the SWAN-SF test split's era, so the same active regions appear in training and test.
 - Benchmarks overstate operational skill: **True** — gap +0.078 (95% CI +0.006..+0.306), positive in every tested year: True.
 - With a pre-committed (deployment) threshold the benchmark-trained gap is +0.085 (95% CI +0.007..+0.309).
 - Live training closes the gap: **False** (benchmark-gap minus live-gap CI [-0.092, 0.025] — negative means live training WIDENED it).
+- MORE live data (2015+2016+2017 tested): single-year operational TSS 0.832 vs multi-year 0.888 — improves it: **True** (difference CI [0.003, 0.094]). operational-skill comparison on identical years; no leakage-free benchmark cell exists for the multi-year model, so gap-vs-gap is not defined for it
 - SELF-CORRECTION (threshold recalibrated on the first operational year, frozen for the later years): benchmark-trained gap +0.061 → +0.034 (95% CI -0.029..+0.322) on the SAME eval years; recovery +0.027 (95% CI -0.019..+0.204) — significant: **False**.
+- COMBINED FIX (multi-year live training + one-year threshold recalibration): operational TSS 0.824 (CI [0.383, 0.926]); recovery -0.051 (95% CI -0.096..+0.032), significant: **False**. no leakage-free benchmark cell for this model — recovery and operational skill only
 
 Self-corrected deployment per model (recalibrate once, freeze, apply forward):
 
@@ -24,6 +28,7 @@ Self-corrected deployment per model (recalibrate once, freeze, apply forward):
 |---|---|---|---|---|---|
 | Benchmark-trained | 2013 | 2015/2016/2017 | 0.815 | **0.843** | +0.027 (95% CI -0.019..+0.204) |
 | Live-trained | 2015 | 2016/2017 | 0.710 | **0.804** | +0.094 (95% CI -0.064..+0.571) |
+| Live-trained (multi-year) | 2015 | 2016/2017 | 0.874 | **0.824** | -0.051 (95% CI -0.096..+0.032) |
 
 Per-year peak TSS (benchmark-trained model):
 
@@ -44,6 +49,8 @@ Fixed test years [2015, 2016, 2017] for every step; same pipeline, accumulating 
 |---|---|---|---|---|---|
 | 2014 | 14675 | 0.914 | 0.832 (CI [0.545, 0.895]) | **+0.082** (95% CI +0.012..+0.376) | +0.157 (95% CI -0.048..+0.558) |
 | 2013+2014 | 28106 | 0.920 | 0.858 (CI [0.559, 0.93]) | **+0.062** (95% CI -0.036..+0.366) | +0.039 (95% CI -0.048..+0.332) |
+| 2012+2013+2014 | 37360 | 0.924 | 0.860 (CI [0.573, 0.906]) | **+0.064** (95% CI +0.010..+0.360) | +0.024 (95% CI -0.051..+0.309) |
+| 2011+2012+2013+2014 | 47030 | 0.929 | 0.881 (CI [0.588, 0.927]) | **+0.048** (95% CI -0.022..+0.344) | +0.020 (95% CI -0.050..+0.306) |
 
 ## 2. It generalises: the storm model shows the same optimism
 

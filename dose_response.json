@@ -80,6 +80,77 @@
         "2016": 0.866,
         "2017": 0.894
       }
+    },
+    {
+      "train_years": [
+        2012,
+        2013,
+        2014
+      ],
+      "n_train": 37360,
+      "train_positives": 623,
+      "train_windows_dropped_leakage_guard": 2101,
+      "benchmark_tss": 0.924,
+      "benchmark_ci": [
+        0.892,
+        0.967
+      ],
+      "operational_tss": 0.86,
+      "operational_ci": [
+        0.573,
+        0.906
+      ],
+      "gap": 0.064,
+      "gap_ci": [
+        0.01,
+        0.36
+      ],
+      "frozen_gap": 0.024,
+      "frozen_gap_ci": [
+        -0.051,
+        0.309
+      ],
+      "operational_by_year": {
+        "2015": 0.814,
+        "2016": 0.902,
+        "2017": 0.865
+      }
+    },
+    {
+      "train_years": [
+        2011,
+        2012,
+        2013,
+        2014
+      ],
+      "n_train": 47030,
+      "train_positives": 785,
+      "train_windows_dropped_leakage_guard": 3049,
+      "benchmark_tss": 0.929,
+      "benchmark_ci": [
+        0.888,
+        0.965
+      ],
+      "operational_tss": 0.881,
+      "operational_ci": [
+        0.588,
+        0.927
+      ],
+      "gap": 0.048,
+      "gap_ci": [
+        -0.022,
+        0.344
+      ],
+      "frozen_gap": 0.02,
+      "frozen_gap_ci": [
+        -0.05,
+        0.306
+      ],
+      "operational_by_year": {
+        "2015": 0.83,
+        "2016": 0.931,
+        "2017": 0.883
+      }
     }
   ]
 }
