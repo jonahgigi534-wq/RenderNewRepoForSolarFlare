@@ -74,24 +74,6 @@
         "brier_skill_vs_climatology": 0.147,
         "peak_tss": 0.677
       }
-    },
-    "2023": {
-      "noaa_official": {
-        "n_days": 363,
-        "flare_days": 137,
-        "base_rate": 0.377,
-        "brier": 0.2077,
-        "brier_skill_vs_climatology": 0.116,
-        "peak_tss": 0.285
-      },
-      "helios_deployed": {
-        "n_days": 363,
-        "flare_days": 137,
-        "base_rate": 0.377,
-        "brier": 0.223,
-        "brier_skill_vs_climatology": 0.051,
-        "peak_tss": 0.323
-      }
     }
   }
 }

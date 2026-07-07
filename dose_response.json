@@ -3,9 +3,14 @@
   "test_years": [
     2015,
     2016,
-    2017,
-    2023
+    2017
   ],
+  "excluded_years": {
+    "2020": "label-attribution rate 0.00 below the scorecard.min_label_attribution gate (labels under-count positives)",
+    "2021": "label-attribution rate 0.55 below the scorecard.min_label_attribution gate (labels under-count positives)",
+    "2022": "label-attribution rate 0.11 below the scorecard.min_label_attribution gate (labels under-count positives)",
+    "2023": "label-attribution rate 0.15 below the scorecard.min_label_attribution gate (labels under-count positives)"
+  },
   "metric": "peak TSS (cluster-bootstrap 95% CIs); frozen gap uses the validation-tuned threshold committed in advance",
   "method": "same pipeline, accumulating live training year-sets all ending 2014; identical fixed test sets for every step, so the points are directly comparable. Leakage guard: training windows from regions present in the benchmark test split are excluded (live 2011/2012 JSOC data overlaps SWAN-SF p1 in time and region ids).",
   "steps": [
@@ -21,26 +26,25 @@
         0.881,
         0.96
       ],
-      "operational_tss": 0.794,
+      "operational_tss": 0.832,
       "operational_ci": [
-        0.577,
-        0.857
+        0.545,
+        0.895
       ],
-      "gap": 0.119,
+      "gap": 0.082,
       "gap_ci": [
-        0.054,
-        0.339
+        0.012,
+        0.376
       ],
-      "frozen_gap": 0.186,
+      "frozen_gap": 0.157,
       "frozen_gap_ci": [
-        -0.008,
-        0.513
+        -0.048,
+        0.558
       ],
       "operational_by_year": {
         "2015": 0.799,
         "2016": 0.834,
-        "2017": 0.862,
-        "2023": 0.683
+        "2017": 0.862
       }
     },
     {
@@ -53,102 +57,28 @@
       "train_windows_dropped_leakage_guard": 0,
       "benchmark_tss": 0.92,
       "benchmark_ci": [
-        0.882,
-        0.981
+        0.879,
+        0.983
       ],
-      "operational_tss": 0.822,
+      "operational_tss": 0.858,
       "operational_ci": [
-        0.613,
-        0.884
+        0.559,
+        0.93
       ],
-      "gap": 0.099,
+      "gap": 0.062,
       "gap_ci": [
-        0.026,
-        0.312
+        -0.036,
+        0.366
       ],
-      "frozen_gap": 0.082,
+      "frozen_gap": 0.039,
       "frozen_gap_ci": [
-        0.007,
-        0.289
+        -0.048,
+        0.332
       ],
       "operational_by_year": {
         "2015": 0.813,
         "2016": 0.866,
-        "2017": 0.894,
-        "2023": 0.713
-      }
-    },
-    {
-      "train_years": [
-        2012,
-        2013,
-        2014
-      ],
-      "n_train": 37360,
-      "train_positives": 652,
-      "train_windows_dropped_leakage_guard": 2101,
-      "benchmark_tss": 0.907,
-      "benchmark_ci": [
-        0.868,
-        0.964
-      ],
-      "operational_tss": 0.832,
-      "operational_ci": [
-        0.613,
-        0.878
-      ],
-      "gap": 0.076,
-      "gap_ci": [
-        0.012,
-        0.306
-      ],
-      "frozen_gap": 0.083,
-      "frozen_gap_ci": [
-        -0.005,
-        0.315
-      ],
-      "operational_by_year": {
-        "2015": 0.831,
-        "2016": 0.886,
-        "2017": 0.888,
-        "2023": 0.721
-      }
-    },
-    {
-      "train_years": [
-        2011,
-        2012,
-        2013,
-        2014
-      ],
-      "n_train": 47030,
-      "train_positives": 827,
-      "train_windows_dropped_leakage_guard": 3049,
-      "benchmark_tss": 0.892,
-      "benchmark_ci": [
-        0.832,
-        0.959
-      ],
-      "operational_tss": 0.821,
-      "operational_ci": [
-        0.606,
-        0.878
-      ],
-      "gap": 0.071,
-      "gap_ci": [
-        -0.023,
-        0.286
-      ],
-      "frozen_gap": 0.045,
-      "frozen_gap_ci": [
-        -0.032,
-        0.268
-      ],
-      "operational_by_year": {
-        "2015": 0.837,
-        "2016": 0.889,
-        "2017": 0.864,
-        "2023": 0.694
+        "2017": 0.894
       }
     }
   ]

@@ -8,18 +8,24 @@
     "test_protocol": "every live-trained model is scored only on operational years strictly after its training data (never backwards in time); cross-model gap comparisons use identical year sets",
     "leakage_guard": "a model whose live training years overlap the benchmark test split's era gets no benchmark/gap cells (same active regions would appear in training and test) \u2014 operational columns only",
     "climatology_note": "a constant-probability (climatology) forecast has TSS = 0 by construction \u2014 the zero line IS the climatology baseline",
-    "recalibration": "self-correction experiment: each model's threshold is re-fit on the earliest of its valid operational years and frozen for the strictly-later years; recovery CIs are paired (frozen2 vs frozen on the same cluster-bootstrap replicates)"
+    "recalibration": "self-correction experiment: each model's threshold is re-fit on the earliest of its valid operational years and frozen for the strictly-later years; recovery CIs are paired (frozen2 vs frozen on the same cluster-bootstrap replicates)",
+    "label_gate": "years whose measured HEK AR-attribution rate falls below scorecard.min_label_attribution are excluded from all label-dependent scoring \u2014 their labels under-count positives (see test_sets.excluded_years)"
   },
   "test_sets": {
     "benchmark": "held-out SWAN-SF magnetograms (14690 windows, 236 flares)",
-    "operational": "live JSOC, unseen year(s): 2013 (13431 windows, 170 flares), 2015 (12597 windows, 273 flares), 2016 (7440 windows, 25 flares), 2017 (3474 windows, 43 flares), 2023 (17359 windows, 86 flares)",
+    "operational": "live JSOC, unseen year(s): 2013 (13431 windows, 170 flares), 2015 (12597 windows, 273 flares), 2016 (7440 windows, 25 flares), 2017 (3474 windows, 43 flares)",
     "operational_years": [
       2013,
       2015,
       2016,
-      2017,
-      2023
-    ]
+      2017
+    ],
+    "excluded_years": {
+      "2020": "HEK AR-attribution rate 0.00 is below the 0.80 gate \u2014 labels under-count positives (a flare without a NOAA AR number can never mark a positive window), so TSS on this year would measure catalog decay, not model skill",
+      "2021": "HEK AR-attribution rate 0.55 is below the 0.80 gate \u2014 labels under-count positives (a flare without a NOAA AR number can never mark a positive window), so TSS on this year would measure catalog decay, not model skill",
+      "2022": "HEK AR-attribution rate 0.11 is below the 0.80 gate \u2014 labels under-count positives (a flare without a NOAA AR number can never mark a positive window), so TSS on this year would measure catalog decay, not model skill",
+      "2023": "HEK AR-attribution rate 0.15 is below the 0.80 gate \u2014 labels under-count positives (a flare without a NOAA AR number can never mark a positive window), so TSS on this year would measure catalog decay, not model skill"
+    }
   },
   "models": [
     {
@@ -29,13 +35,12 @@
         2013,
         2015,
         2016,
-        2017,
-        2023
+        2017
       ],
-      "operational_tss": 0.812,
+      "operational_tss": 0.828,
       "operational_ci": [
-        0.638,
-        0.853
+        0.609,
+        0.869
       ],
       "by_year": {
         "2013": {
@@ -93,31 +98,17 @@
           ],
           "n": 3474,
           "positives": 43
-        },
-        "2023": {
-          "peak_tss": 0.75,
-          "peak_ci": [
-            0.671,
-            0.837
-          ],
-          "frozen_tss": 0.733,
-          "frozen_ci": [
-            0.638,
-            0.808
-          ],
-          "n": 17359,
-          "positives": 86
         }
       },
       "benchmark_tss": 0.906,
-      "gap": 0.094,
+      "gap": 0.078,
       "benchmark_ci": [
         0.854,
         0.961
       ],
       "gap_ci": [
-        0.021,
-        0.273
+        0.006,
+        0.306
       ],
       "frozen": {
         "threshold": 0.031,
@@ -126,15 +117,15 @@
           0.821,
           0.928
         ],
-        "operational_tss": 0.78,
+        "operational_tss": 0.791,
         "operational_ci": [
-          0.605,
-          0.823
+          0.575,
+          0.838
         ],
-        "gap": 0.097,
+        "gap": 0.085,
         "gap_ci": [
-          0.024,
-          0.277
+          0.007,
+          0.309
         ]
       },
       "recalibrated": {
@@ -143,29 +134,28 @@
         "eval_years": [
           2015,
           2016,
-          2017,
-          2023
+          2017
         ],
-        "operational_tss": 0.803,
+        "operational_tss": 0.843,
         "operational_ci": [
-          0.585,
-          0.835
+          0.558,
+          0.872
         ],
-        "before_tss_same_years": 0.795,
-        "recovery": 0.009,
+        "before_tss_same_years": 0.815,
+        "recovery": 0.027,
         "recovery_ci": [
-          -0.026,
-          0.141
+          -0.019,
+          0.204
         ],
-        "gap_before_same_years": 0.082,
+        "gap_before_same_years": 0.061,
         "gap_before_same_years_ci": [
-          0.005,
-          0.304
+          -0.022,
+          0.362
         ],
-        "gap_after": 0.073,
+        "gap_after": 0.034,
         "gap_after_ci": [
-          0.007,
-          0.294
+          -0.029,
+          0.322
         ],
         "by_year": {
           "2015": {
@@ -188,13 +178,6 @@
               0.0,
               0.898
             ]
-          },
-          "2023": {
-            "frozen_tss": 0.685,
-            "frozen_ci": [
-              0.589,
-              0.763
-            ]
           }
         }
       }
@@ -205,13 +188,12 @@
       "operational_years_used": [
         2015,
         2016,
-        2017,
-        2023
+        2017
       ],
-      "operational_tss": 0.794,
+      "operational_tss": 0.832,
       "operational_ci": [
-        0.58,
-        0.857
+        0.542,
+        0.895
       ],
       "by_year": {
         "2015": {
@@ -255,31 +237,17 @@
           ],
           "n": 3474,
           "positives": 43
-        },
-        "2023": {
-          "peak_tss": 0.683,
-          "peak_ci": [
-            0.609,
-            0.819
-          ],
-          "frozen_tss": 0.523,
-          "frozen_ci": [
-            0.334,
-            0.697
-          ],
-          "n": 17359,
-          "positives": 86
         }
       },
       "benchmark_tss": 0.914,
-      "gap": 0.119,
+      "gap": 0.082,
       "benchmark_ci": [
         0.88,
         0.957
       ],
       "gap_ci": [
-        0.042,
-        0.339
+        0.005,
+        0.38
       ],
       "frozen": {
         "threshold": 0.089,
@@ -288,15 +256,15 @@
           0.606,
           0.934
         ],
-        "operational_tss": 0.608,
+        "operational_tss": 0.637,
         "operational_ci": [
-          0.33,
-          0.718
+          0.268,
+          0.763
         ],
-        "gap": 0.186,
+        "gap": 0.157,
         "gap_ci": [
-          -0.027,
-          0.506
+          -0.064,
+          0.568
         ]
       },
       "recalibrated": {
@@ -304,29 +272,28 @@
         "threshold": 0.032,
         "eval_years": [
           2016,
-          2017,
-          2023
+          2017
         ],
-        "operational_tss": 0.757,
+        "operational_tss": 0.804,
         "operational_ci": [
-          0.482,
-          0.796
+          0.393,
+          0.852
         ],
-        "before_tss_same_years": 0.648,
-        "recovery": 0.109,
+        "before_tss_same_years": 0.71,
+        "recovery": 0.094,
         "recovery_ci": [
-          -0.012,
-          0.422
+          -0.064,
+          0.571
         ],
-        "gap_before_same_years": 0.146,
+        "gap_before_same_years": 0.084,
         "gap_before_same_years_ci": [
-          -0.073,
-          0.54
+          -0.163,
+          0.628
         ],
-        "gap_after": 0.037,
+        "gap_after": -0.01,
         "gap_after_ci": [
-          -0.148,
-          0.336
+          -0.195,
+          0.424
         ],
         "by_year": {
           "2016": {
@@ -342,147 +309,6 @@
               0.0,
               0.859
             ]
-          },
-          "2023": {
-            "frozen_tss": 0.661,
-            "frozen_ci": [
-              0.581,
-              0.727
-            ]
-          }
-        }
-      }
-    },
-    {
-      "name": "Live-trained (multi-year)",
-      "detail": "JSOC 2011+2012+2014",
-      "operational_years_used": [
-        2015,
-        2016,
-        2017,
-        2023
-      ],
-      "operational_tss": 0.847,
-      "operational_ci": [
-        0.623,
-        0.897
-      ],
-      "by_year": {
-        "2015": {
-          "peak_tss": 0.834,
-          "peak_ci": [
-            0.776,
-            0.897
-          ],
-          "frozen_tss": 0.813,
-          "frozen_ci": [
-            0.757,
-            0.856
-          ],
-          "n": 12597,
-          "positives": 273
-        },
-        "2016": {
-          "peak_tss": 0.924,
-          "peak_ci": [
-            0.895,
-            0.993
-          ],
-          "frozen_tss": 0.877,
-          "frozen_ci": [
-            0.839,
-            0.909
-          ],
-          "n": 7440,
-          "positives": 25
-        },
-        "2017": {
-          "peak_tss": 0.888,
-          "peak_ci": [
-            0.0,
-            0.973
-          ],
-          "frozen_tss": 0.823,
-          "frozen_ci": [
-            0.0,
-            0.884
-          ],
-          "n": 3474,
-          "positives": 43
-        },
-        "2023": {
-          "peak_tss": 0.743,
-          "peak_ci": [
-            0.659,
-            0.857
-          ],
-          "frozen_tss": 0.679,
-          "frozen_ci": [
-            0.581,
-            0.757
-          ],
-          "n": 17359,
-          "positives": 86
-        }
-      },
-      "benchmark_tss": null,
-      "gap": null,
-      "benchmark_ci": null,
-      "gap_ci": null,
-      "benchmark_note": "no leakage-free benchmark test exists for this model: its live training years (JSOC 2011+2012+2014) cover the SWAN-SF test split's era, so the same active regions appear in training and test",
-      "frozen": {
-        "threshold": 0.007,
-        "benchmark_tss": null,
-        "benchmark_ci": null,
-        "operational_tss": 0.798,
-        "operational_ci": [
-          0.582,
-          0.828
-        ],
-        "gap": null,
-        "gap_ci": null
-      },
-      "recalibrated": {
-        "calibrated_on": 2015,
-        "threshold": 0.021,
-        "eval_years": [
-          2016,
-          2017,
-          2023
-        ],
-        "operational_tss": 0.83,
-        "operational_ci": [
-          0.531,
-          0.876
-        ],
-        "before_tss_same_years": 0.793,
-        "recovery": 0.037,
-        "recovery_ci": [
-          -0.031,
-          0.066
-        ],
-        "benchmark_note": "no leakage-free benchmark cell for this model \u2014 recovery and operational skill only",
-        "by_year": {
-          "2016": {
-            "frozen_tss": 0.896,
-            "frozen_ci": [
-              0.689,
-              0.953
-            ]
-          },
-          "2017": {
-            "frozen_tss": 0.868,
-            "frozen_ci": [
-              0.0,
-              0.945
-            ]
-          },
-          "2023": {
-            "frozen_tss": 0.726,
-            "frozen_ci": [
-              0.626,
-              0.808
-            ]
           }
         }
       }
@@ -494,44 +320,44 @@
         {
           "p_lo": 0.0,
           "p_hi": 0.1,
-          "p_mean": 0.0094,
-          "obs_freq": 0.0037,
-          "n": 50835
+          "p_mean": 0.0083,
+          "obs_freq": 0.0045,
+          "n": 34988
         },
         {
           "p_lo": 0.1,
           "p_hi": 0.2,
-          "p_mean": 0.1213,
-          "obs_freq": 0.111,
-          "n": 2928
+          "p_mean": 0.1217,
+          "obs_freq": 0.1712,
+          "n": 1647
         },
         {
           "p_lo": 0.2,
           "p_hi": 0.3,
-          "p_mean": 0.2533,
-          "obs_freq": 0.1014,
-          "n": 148
+          "p_mean": 0.252,
+          "obs_freq": 0.1299,
+          "n": 77
         },
         {
           "p_lo": 0.3,
           "p_hi": 0.4,
-          "p_mean": 0.3282,
-          "obs_freq": 0.1639,
-          "n": 366
+          "p_mean": 0.329,
+          "obs_freq": 0.2488,
+          "n": 217
         },
         {
           "p_lo": 0.4,
           "p_hi": 0.5,
-          "p_mean": 0.4577,
-          "obs_freq": 0.2667,
-          "n": 15
+          "p_mean": 0.4489,
+          "obs_freq": 0.4444,
+          "n": 9
         },
         {
           "p_lo": 0.5,
           "p_hi": 0.6,
-          "p_mean": 0.5563,
-          "obs_freq": 0.25,
-          "n": 8
+          "p_mean": 0.5183,
+          "obs_freq": 0.6667,
+          "n": 3
         },
         {
           "p_lo": 0.6,
@@ -541,153 +367,69 @@
           "n": 1
         }
       ],
-      "brier": 0.01031,
-      "base_rate": 0.01099
+      "brier": 0.01198,
+      "base_rate": 0.01383
     },
     "Live-trained": {
       "bins": [
         {
           "p_lo": 0.0,
           "p_hi": 0.1,
-          "p_mean": 0.0142,
-          "obs_freq": 0.0057,
-          "n": 39058
+          "p_mean": 0.0117,
+          "obs_freq": 0.0078,
+          "n": 22877
         },
         {
           "p_lo": 0.1,
           "p_hi": 0.2,
-          "p_mean": 0.1142,
-          "obs_freq": 0.1126,
-          "n": 1812
+          "p_mean": 0.1133,
+          "obs_freq": 0.2555,
+          "n": 634
         }
       ],
-      "brier": 0.00995,
-      "base_rate": 0.01045
-    },
-    "Live-trained (multi-year)": {
-      "bins": [
-        {
-          "p_lo": 0.0,
-          "p_hi": 0.1,
-          "p_mean": 0.0063,
-          "obs_freq": 0.003,
-          "n": 38471
-        },
-        {
-          "p_lo": 0.1,
-          "p_hi": 0.2,
-          "p_mean": 0.1399,
-          "obs_freq": 0.0876,
-          "n": 1507
-        },
-        {
-          "p_lo": 0.2,
-          "p_hi": 0.3,
-          "p_mean": 0.2394,
-          "obs_freq": 0.1959,
-          "n": 868
-        },
-        {
-          "p_lo": 0.3,
-          "p_hi": 0.4,
-          "p_mean": 0.3161,
-          "obs_freq": 0.381,
-          "n": 21
-        },
-        {
-          "p_lo": 0.4,
-          "p_hi": 0.5,
-          "p_mean": 0.4813,
-          "obs_freq": 0.0,
-          "n": 2
-        },
-        {
-          "p_lo": 0.5,
-          "p_hi": 0.6,
-          "p_mean": 0.5684,
-          "obs_freq": 0.0,
-          "n": 1
-        }
-      ],
-      "brier": 0.00937,
-      "base_rate": 0.01045
+      "brier": 0.0129,
+      "base_rate": 0.0145
     }
   },
   "findings": {
     "benchmarks_overstate": true,
-    "overstatement_gap": 0.094,
+    "overstatement_gap": 0.078,
     "overstatement_gap_ci": [
-      0.021,
-      0.273
+      0.006,
+      0.306
     ],
-    "frozen_overstatement_gap": 0.097,
+    "frozen_overstatement_gap": 0.085,
     "frozen_overstatement_gap_ci": [
-      0.024,
-      0.277
+      0.007,
+      0.309
     ],
     "gap_positive_every_year": true,
     "live_training_closes_gap": false,
     "gap_comparison_years": [
       2015,
       2016,
-      2017,
-      2023
+      2017
     ],
-    "benchmark_gap_on_comparison_years": 0.076,
+    "benchmark_gap_on_comparison_years": 0.049,
     "live_minus_benchmark_gap_ci": [
-      -0.095,
-      0.013
+      -0.092,
+      0.025
     ],
-    "more_live_data": {
-      "years_compared": [
-        2015,
-        2016,
-        2017,
-        2023
-      ],
-      "single_year_operational_tss": 0.794,
-      "multi_year_operational_tss": 0.847,
-      "more_data_improves_operational_skill": true,
-      "multi_minus_single_operational_ci": [
-        0.011,
-        0.09
-      ],
-      "note": "operational-skill comparison on identical years; no leakage-free benchmark cell exists for the multi-year model, so gap-vs-gap is not defined for it"
-    },
+    "more_live_data": null,
     "recalibration": {
       "benchmark_trained": {
-        "recovery": 0.009,
+        "recovery": 0.027,
         "recovery_ci": [
-          -0.026,
-          0.141
+          -0.019,
+          0.204
         ],
-        "gap_before_same_years": 0.082,
-        "gap_after": 0.073,
+        "gap_before_same_years": 0.061,
+        "gap_after": 0.034,
         "gap_after_ci": [
-          0.007,
-          0.294
+          -0.029,
+          0.322
         ],
         "recovers_significantly": false
-      },
-      "combined_fix": {
-        "description": "multi-year live training + one-year threshold recalibration",
-        "operational_tss": 0.83,
-        "operational_ci": [
-          0.531,
-          0.876
-        ],
-        "recovery": 0.037,
-        "recovery_ci": [
-          -0.031,
-          0.066
-        ],
-        "recovers_significantly": false,
-        "gap_before_same_years": null,
-        "gap_after": null,
-        "gap_after_ci": null,
-        "gap_closed": null,
-        "gap_not_significant": null,
-        "note": "no leakage-free benchmark cell for this model \u2014 recovery and operational skill only"
       }
     }
   }
