@@ -1,0 +1,93 @@
+# Scheduled prediction-log runner: this is what makes the prospective forecast
+# record durable and judge-visible. Runs the SAME cycle the local always-on
+# machine runs (solarflare.notify --once), then commits any change to
+# prediction_history.csv back to main. No manual daily run needed.
+#
+# LFS bandwidth note: free GitHub LFS quota is 1GB/month, and the model
+# artifacts are ~177MB combined — a naive `checkout(lfs=true)` on every
+# scheduled run would blow that quota in ~5 runs. Instead this checks out
+# WITHOUT smudging LFS, hashes the LFS pointer files, and only pulls the real
+# binaries when that hash changes (i.e. when someone actually updates a
+# model); otherwise it restores them from the Actions cache. Bandwidth is
+# spent once per model change, not once per run.
+#
+# notify.db (sqlite dedup/verification state) is intentionally NOT committed
+# to git — per-team decision, prediction_history.csv is the evidentiary
+# record. State still needs to persist between runs so pending forecasts get
+# verified later, so it round-trips through the Actions cache instead.
+name: prediction-log
+
+on:
+  schedule:
+    - cron: "7 * * * *"       # hourly, offset off the hour to avoid GH's :00 pileup
+  workflow_dispatch: {}         # manual "Run workflow" button for on-demand runs
+
+concurrency:
+  group: prediction-log
+  cancel-in-progress: false     # queue rather than clobber an in-flight run
+
+permissions:
+  contents: write
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements-server.txt
+
+      - name: Hash LFS pointers
+        id: lfs
+        run: echo "hash=$(git lfs ls-files -l models | sort | md5sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore cached model binaries
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: lfs-models-${{ steps.lfs.outputs.hash }}
+
+      - name: Pull LFS models (cache miss only)
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: git lfs pull
+
+      - name: Restore notifier state (notify.db)
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/notify.db
+          key: notify-db-${{ github.run_id }}
+          restore-keys: |
+            notify-db-
+
+      - name: Run one notify cycle
+        run: |
+          mkdir -p .cache
+          python -m solarflare.notify --once
+
+      - name: Save notifier state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/notify.db
+          key: notify-db-${{ github.run_id }}
+
+      - name: Commit prediction history if changed
+        run: |
+          git config user.name "Jonathan Gigi"
+          git config user.email "gigijoseph10@gmail.com"
+          git add prediction_history.csv
+          if git diff --cached --quiet; then
+            echo "No new prediction-history rows this cycle."
+          else
+            git commit -m "Log prediction cycle $(date -u +%Y-%m-%dT%H:%MZ)"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
