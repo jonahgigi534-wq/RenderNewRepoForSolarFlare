@@ -629,6 +629,14 @@ def _merge_history_rows(local_rows: list[dict], disk_rows: list[dict]) -> list[d
     return rows
 
 
+def history_csv_path(cfg: dict) -> str:
+    """Resolved path of the committed prediction-history spreadsheet — the
+    canonical, git-tracked record of evidence (the GitHub Actions runner keeps
+    it current). Config `notify.history_csv` overrides the default location."""
+    return (cfg.get("notify", {}).get("history_csv")
+            or os.path.join(cfg["_project_root"], "prediction_history.csv"))
+
+
 def export_csv(cfg: dict, path: str | None = None) -> str | None:
     """Write the full prediction history to a CSV spreadsheet on disk (Excel/
     Sheets), MERGED with whatever is already at that path — never a blind
@@ -636,8 +644,7 @@ def export_csv(cfg: dict, path: str | None = None) -> str | None:
     survive this machine's export."""
     import csv
     import io
-    path = path or (cfg.get("notify", {}).get("history_csv")
-                    or os.path.join(cfg["_project_root"], "prediction_history.csv"))
+    path = path or history_csv_path(cfg)
     try:
         local_rows = list(csv.DictReader(io.StringIO(history_csv_string(cfg))))
         disk_rows = []

@@ -27,15 +27,27 @@ from solarflare.config import load_config
 cfg = load_config()
 log = logging.getLogger("helios.server")
 
+# DEMO_MODE: set HELIOS_DEMO_MODE=1 on the Render deploy. The record of evidence
+# is the git-committed prediction_history.csv (kept current by the GitHub Actions
+# runner), NOT this ephemeral-disk demo. In demo mode we (1) don't start the
+# notifier loop — so the demo can't write a second, contradictory, wiped-on-
+# restart record — and (2) serve the committed CSV that ships with the checkout.
+DEMO_MODE = os.getenv("HELIOS_DEMO_MODE", "").strip().lower() in ("1", "true", "yes", "on")
+
 
 @asynccontextmanager
 async def _lifespan(app):
     # Start the live email-notifier loop while the server runs (dry-run unless SMTP
     # is configured). Only fires under uvicorn, not on plain import (tests are safe).
-    try:
-        notify.start_background(cfg)
-    except Exception as exc:                                   # noqa: BLE001 (never block startup)
-        log.warning("notifier background loop failed to start: %s", exc)
+    # Skipped in DEMO_MODE so this deploy never writes a second, ephemeral record
+    # that would diverge from the committed prediction_history.csv.
+    if DEMO_MODE:
+        log.info("DEMO_MODE: notifier loop disabled; serving committed prediction_history.csv")
+    else:
+        try:
+            notify.start_background(cfg)
+        except Exception as exc:                               # noqa: BLE001 (never block startup)
+            log.warning("notifier background loop failed to start: %s", exc)
     yield
 
 
@@ -198,12 +210,25 @@ def alerts_demo_endpoint(x_demo_token: str = Header("")):
 @app.get("/api/notify/status")
 def notify_status():
     """Email-notifier state — mode (dry-run/live), thresholds, pending + recent predictions."""
-    return JSONResponse(notify.status(cfg))
+    st = notify.status(cfg)
+    if DEMO_MODE:
+        st["demo_mode"] = True
+        st["record_note"] = ("Demo mirror. The prospective forecast record of evidence is the "
+                             "git-committed prediction_history.csv, maintained by the scheduled runner.")
+    return JSONResponse(st)
 
 
 @app.get("/api/notify/history.csv")
 def notify_history_csv():
-    """Full prediction history as a CSV spreadsheet (forecast vs actual outcome)."""
+    """Full prediction history as a CSV spreadsheet (forecast vs actual outcome).
+
+    In DEMO_MODE this returns the git-committed record that ships with the
+    checkout — the canonical evidence — instead of this deploy's ephemeral DB
+    (which is empty/partial and reset on every restart)."""
+    if DEMO_MODE:
+        path = notify.history_csv_path(cfg)
+        if os.path.exists(path):
+            return FileResponse(path, media_type="text/csv", filename="prediction_history.csv")
     return Response(content=notify.history_csv_string(cfg), media_type="text/csv",
                     headers={"Content-Disposition": "attachment; filename=prediction_history.csv"})
 
