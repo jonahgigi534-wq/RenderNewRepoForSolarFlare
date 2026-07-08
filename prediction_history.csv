@@ -24,3 +24,4 @@ id,kind,issued_ct,forecast_threshold,p_alert,p_M_24h,p_X_24h,expected_class,curr
 23,daily,2026-07-04 19:41 CDT,M,0.7656,0.7656,0.99,X,C7.6,24,2026-07-05 19:41 CDT,verified,M5.3,5.3936186304781586e-05,HIT,HIT,2026-07-05 21:54 CDT,n/a,logged,X1.5,0.00015086776396421289,0.447,0.384,1.255,no,yes
 24,alert,2026-07-05 13:06 CDT,M,0.7765,0.7765,0.9851,X,M2.2,24,2026-07-06 13:06 CDT,pending,,,pending,pending,,dry-run,,X1.5,0.00015461994923119448,,,,,
 25,daily,2026-07-05 21:54 CDT,M,0.7765,0.7765,0.7687,X,C6.9,24,2026-07-06 21:54 CDT,pending,,,pending,pending,,n/a,,X1.3,0.0001308312797954291,,,,,
+26,daily,2026-07-07 19:41 CDT,M,0.4527,0.4527,0.1878,M,B7.0,24,2026-07-08 19:41 CDT,pending,,,pending,pending,,n/a,,M2.1,2.114013137326239e-05,,,,,
